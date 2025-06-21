@@ -36,10 +36,21 @@ export interface DepositRequest {
   userName: string;
 }
 
+export interface WithdrawalRequest {
+  id: string;
+  userId: string;
+  amount: number;
+  currency: 'BTC' | 'USDT';
+  walletAddress: string;
+  status: 'pending' | 'approved' | 'completed' | 'rejected';
+  createdAt: Date;
+  userName: string;
+}
+
 export interface Transaction {
   id: string;
   userId: string;
-  type: 'deposit' | 'investment' | 'profit' | 'reinvestment';
+  type: 'deposit' | 'investment' | 'profit' | 'reinvestment' | 'withdrawal';
   amount: number;
   status: 'pending' | 'completed' | 'failed';
   createdAt: Date;
@@ -50,13 +61,15 @@ interface DataContextType {
   investmentPlans: InvestmentPlan[];
   investments: Investment[];
   depositRequests: DepositRequest[];
+  withdrawalRequests: WithdrawalRequest[];
   transactions: Transaction[];
   walletAddresses: { BTC: string; USDT: string };
   updateInvestmentPlans: (plans: InvestmentPlan[]) => Promise<void>;
   createInvestment: (planId: string, amount: number, userId: string) => Promise<boolean>;
   createDepositRequest: (userId: string, amount: number, currency: 'BTC' | 'USDT', userName: string) => Promise<void>;
-  approveDeposit: (depositId: string, userId: string) => Promise<void>;
-  rejectDeposit: (depositId: string) => Promise<void>;
+  createWithdrawalRequest: (userId: string, amount: number, currency: 'BTC' | 'USDT', walletAddress: string, userName: string) => Promise<void>;
+  updateDepositStatus: (depositId: string, status: 'pending' | 'confirmed' | 'rejected', userId?: string) => Promise<void>;
+  updateWithdrawalStatus: (withdrawalId: string, status: 'pending' | 'approved' | 'completed' | 'rejected', userId?: string) => Promise<void>;
   getUserInvestments: (userId: string) => Investment[];
   getUserTransactions: (userId: string) => Transaction[];
   getAllUsers: () => Promise<any[]>;
@@ -84,6 +97,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [investmentPlans, setInvestmentPlans] = useState<InvestmentPlan[]>([]);
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [depositRequests, setDepositRequests] = useState<DepositRequest[]>([]);
+  const [withdrawalRequests, setWithdrawalRequests] = useState<WithdrawalRequest[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   useEffect(() => {
@@ -97,6 +111,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       fetchInvestmentPlans(),
       fetchInvestments(),
       fetchDepositRequests(),
+      fetchWithdrawalRequests(),
       fetchTransactions()
     ]);
   };
@@ -210,6 +225,43 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setDepositRequests(deposits);
     } catch (error) {
       console.error('Error fetching deposit requests:', error);
+    }
+  };
+
+  const fetchWithdrawalRequests = async () => {
+    if (!user) return;
+
+    try {
+      let query = supabase.from('withdrawal_requests').select(`
+        *,
+        profiles (name)
+      `);
+
+      if (!user.isAdmin) {
+        query = query.eq('user_id', user.id);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching withdrawal requests:', error);
+        return;
+      }
+
+      const withdrawals: WithdrawalRequest[] = data.map(withdrawal => ({
+        id: withdrawal.id,
+        userId: withdrawal.user_id,
+        amount: withdrawal.amount,
+        currency: withdrawal.currency,
+        walletAddress: withdrawal.wallet_address,
+        status: withdrawal.status,
+        createdAt: new Date(withdrawal.created_at),
+        userName: withdrawal.profiles?.name || 'Unknown'
+      }));
+
+      setWithdrawalRequests(withdrawals);
+    } catch (error) {
+      console.error('Error fetching withdrawal requests:', error);
     }
   };
 
@@ -348,24 +400,49 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const approveDeposit = async (depositId: string, userId: string) => {
+  const createWithdrawalRequest = async (userId: string, amount: number, currency: 'BTC' | 'USDT', walletAddress: string, userName: string) => {
     try {
-      // Get deposit amount
-      const { data: deposit, error: fetchError } = await supabase
-        .from('deposit_requests')
-        .select('amount')
-        .eq('id', depositId)
-        .single();
+      const { error: withdrawalError } = await supabase
+        .from('withdrawal_requests')
+        .insert({
+          user_id: userId,
+          amount,
+          currency,
+          wallet_address: walletAddress
+        });
 
-      if (fetchError || !deposit) {
-        console.error('Error fetching deposit:', fetchError);
+      if (withdrawalError) {
+        console.error('Error creating withdrawal request:', withdrawalError);
         return;
       }
 
+      // Create transaction record
+      const { error: transactionError } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: userId,
+          type: 'withdrawal',
+          amount,
+          status: 'pending',
+          description: `${currency} withdrawal request`
+        });
+
+      if (transactionError) {
+        console.error('Error creating transaction:', transactionError);
+      }
+
+      await refreshData();
+    } catch (error) {
+      console.error('Error creating withdrawal request:', error);
+    }
+  };
+
+  const updateDepositStatus = async (depositId: string, status: 'pending' | 'confirmed' | 'rejected', userId?: string) => {
+    try {
       // Update deposit status
       const { error: updateError } = await supabase
         .from('deposit_requests')
-        .update({ status: 'confirmed' })
+        .update({ status })
         .eq('id', depositId);
 
       if (updateError) {
@@ -373,50 +450,98 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return;
       }
 
-      // Update user balance
-      const { error: balanceError } = await supabase
-        .from('profiles')
-        .update({ balance: supabase.sql`balance + ${deposit.amount}` })
-        .eq('id', userId);
+      // If confirmed and userId provided, update user balance
+      if (status === 'confirmed' && userId) {
+        const { data: deposit, error: fetchError } = await supabase
+          .from('deposit_requests')
+          .select('amount')
+          .eq('id', depositId)
+          .single();
 
-      if (balanceError) {
-        console.error('Error updating balance:', balanceError);
-        return;
-      }
+        if (!fetchError && deposit) {
+          const { error: balanceError } = await supabase
+            .from('profiles')
+            .update({ balance: supabase.sql`balance + ${deposit.amount}` })
+            .eq('id', userId);
 
-      // Update transaction status
-      const { error: transactionError } = await supabase
-        .from('transactions')
-        .update({ status: 'completed' })
-        .eq('user_id', userId)
-        .eq('type', 'deposit')
-        .eq('status', 'pending');
+          if (balanceError) {
+            console.error('Error updating balance:', balanceError);
+          }
 
-      if (transactionError) {
-        console.error('Error updating transaction:', transactionError);
+          // Update transaction status
+          const { error: transactionError } = await supabase
+            .from('transactions')
+            .update({ status: status === 'confirmed' ? 'completed' : 'failed' })
+            .eq('user_id', userId)
+            .eq('type', 'deposit')
+            .eq('status', 'pending');
+
+          if (transactionError) {
+            console.error('Error updating transaction:', transactionError);
+          }
+        }
       }
 
       await refreshData();
     } catch (error) {
-      console.error('Error approving deposit:', error);
+      console.error('Error updating deposit status:', error);
     }
   };
 
-  const rejectDeposit = async (depositId: string) => {
+  const updateWithdrawalStatus = async (withdrawalId: string, status: 'pending' | 'approved' | 'completed' | 'rejected', userId?: string) => {
     try {
-      const { error } = await supabase
-        .from('deposit_requests')
-        .update({ status: 'rejected' })
-        .eq('id', depositId);
+      // Update withdrawal status
+      const { error: updateError } = await supabase
+        .from('withdrawal_requests')
+        .update({ status })
+        .eq('id', withdrawalId);
 
-      if (error) {
-        console.error('Error rejecting deposit:', error);
+      if (updateError) {
+        console.error('Error updating withdrawal:', updateError);
         return;
+      }
+
+      // If approved and userId provided, deduct from user balance
+      if (status === 'approved' && userId) {
+        const { data: withdrawal, error: fetchError } = await supabase
+          .from('withdrawal_requests')
+          .select('amount')
+          .eq('id', withdrawalId)
+          .single();
+
+        if (!fetchError && withdrawal) {
+          const { error: balanceError } = await supabase
+            .from('profiles')
+            .update({ balance: supabase.sql`balance - ${withdrawal.amount}` })
+            .eq('id', userId);
+
+          if (balanceError) {
+            console.error('Error updating balance:', balanceError);
+          }
+        }
+      }
+
+      // Update transaction status
+      if (userId) {
+        let transactionStatus = 'pending';
+        if (status === 'completed') transactionStatus = 'completed';
+        if (status === 'rejected') transactionStatus = 'failed';
+
+        const { error: transactionError } = await supabase
+          .from('transactions')
+          .update({ status: transactionStatus })
+          .eq('user_id', userId)
+          .eq('type', 'withdrawal')
+          .eq('status', 'pending');
+
+        if (transactionError) {
+          console.error('Error updating transaction:', transactionError);
+        }
       }
 
       await refreshData();
     } catch (error) {
-      console.error('Error rejecting deposit:', error);
+      console.error('Error updating withdrawal status:', error);
     }
   };
 
@@ -475,13 +600,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     investmentPlans,
     investments,
     depositRequests,
+    withdrawalRequests,
     transactions,
     walletAddresses,
     updateInvestmentPlans,
     createInvestment,
     createDepositRequest,
-    approveDeposit,
-    rejectDeposit,
+    createWithdrawalRequest,
+    updateDepositStatus,
+    updateWithdrawalStatus,
     getUserInvestments,
     getUserTransactions,
     getAllUsers,

@@ -12,15 +12,20 @@ import {
   Trash2,
   Plus,
   Search,
-  Filter
+  Filter,
+  ArrowUpRight,
+  ArrowDownLeft,
+  AlertCircle,
+  CreditCard
 } from 'lucide-react';
 
 const AdminDashboard: React.FC = () => {
   const { 
-    depositRequests, 
+    depositRequests,
+    withdrawalRequests,
     getAllUsers, 
-    approveDeposit, 
-    rejectDeposit, 
+    updateDepositStatus,
+    updateWithdrawalStatus,
     updateUserBalance,
     investmentPlans,
     updateInvestmentPlans,
@@ -43,26 +48,47 @@ const AdminDashboard: React.FC = () => {
   });
 
   useEffect(() => {
-    const allUsers = getAllUsers();
-    setUsers(allUsers);
+    const fetchUsers = async () => {
+      const allUsers = await getAllUsers();
+      setUsers(allUsers);
+    };
+    fetchUsers();
   }, [getAllUsers]);
 
-  const handleApproveDeposit = (depositId: string, userId: string, amount: number) => {
-    approveDeposit(depositId, userId);
-    updateUserBalance(userId, amount);
+  const handleDepositStatusChange = async (depositId: string, status: 'pending' | 'confirmed' | 'rejected', userId: string) => {
+    await updateDepositStatus(depositId, status, userId);
     
-    // Update local users state
-    setUsers(prevUsers => 
-      prevUsers.map(user => 
-        user.id === userId 
-          ? { ...user, balance: user.balance + amount }
-          : user
-      )
-    );
+    // Update local users state if deposit is confirmed
+    if (status === 'confirmed') {
+      const deposit = depositRequests.find(d => d.id === depositId);
+      if (deposit) {
+        setUsers(prevUsers => 
+          prevUsers.map(user => 
+            user.id === userId 
+              ? { ...user, balance: user.balance + deposit.amount }
+              : user
+          )
+        );
+      }
+    }
   };
 
-  const handleRejectDeposit = (depositId: string) => {
-    rejectDeposit(depositId);
+  const handleWithdrawalStatusChange = async (withdrawalId: string, status: 'pending' | 'approved' | 'completed' | 'rejected', userId: string) => {
+    await updateWithdrawalStatus(withdrawalId, status, userId);
+    
+    // Update local users state if withdrawal is approved
+    if (status === 'approved') {
+      const withdrawal = withdrawalRequests.find(w => w.id === withdrawalId);
+      if (withdrawal) {
+        setUsers(prevUsers => 
+          prevUsers.map(user => 
+            user.id === userId 
+              ? { ...user, balance: user.balance - withdrawal.amount }
+              : user
+          )
+        );
+      }
+    }
   };
 
   const handleEditPlan = (plan: any) => {
@@ -118,6 +144,7 @@ const AdminDashboard: React.FC = () => {
   );
 
   const pendingDeposits = depositRequests.filter(req => req.status === 'pending');
+  const pendingWithdrawals = withdrawalRequests.filter(req => req.status === 'pending');
   const totalUsers = users.length;
   const totalDeposits = depositRequests.reduce((sum, req) => 
     req.status === 'confirmed' ? sum + req.amount : sum, 0
@@ -144,8 +171,8 @@ const AdminDashboard: React.FC = () => {
       color: 'from-purple-400 to-purple-600'
     },
     {
-      title: 'Pending Deposits',
-      value: pendingDeposits.length.toString(),
+      title: 'Pending Requests',
+      value: (pendingDeposits.length + pendingWithdrawals.length).toString(),
       icon: Clock,
       color: 'from-yellow-400 to-yellow-600'
     }
@@ -155,8 +182,24 @@ const AdminDashboard: React.FC = () => {
     { id: 'overview', label: 'Overview' },
     { id: 'users', label: 'Users' },
     { id: 'deposits', label: 'Deposits' },
+    { id: 'withdrawals', label: 'Withdrawals' },
     { id: 'plans', label: 'Investment Plans' }
   ];
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'confirmed':
+      case 'completed':
+      case 'approved':
+        return 'bg-green-500/20 text-green-400';
+      case 'pending':
+        return 'bg-yellow-500/20 text-yellow-400';
+      case 'rejected':
+        return 'bg-red-500/20 text-red-400';
+      default:
+        return 'bg-gray-500/20 text-gray-400';
+    }
+  };
 
   return (
     <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
@@ -164,7 +207,7 @@ const AdminDashboard: React.FC = () => {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Admin Dashboard</h1>
-          <p className="text-slate-400">Manage users, deposits, and investment plans</p>
+          <p className="text-slate-400">Manage users, deposits, withdrawals, and investment plans</p>
         </div>
 
         {/* Tabs */}
@@ -208,10 +251,25 @@ const AdminDashboard: React.FC = () => {
               ))}
             </div>
 
+            {/* Pending Requests Alert */}
+            {(pendingDeposits.length > 0 || pendingWithdrawals.length > 0) && (
+              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
+                <div className="flex items-center space-x-2">
+                  <AlertCircle className="w-5 h-5 text-yellow-400" />
+                  <span className="text-yellow-400 font-medium">
+                    You have {pendingDeposits.length} pending deposits and {pendingWithdrawals.length} pending withdrawals requiring attention.
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Recent Activity */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
-                <h3 className="text-lg font-semibold text-white mb-4">Recent Deposits</h3>
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+                  <ArrowUpRight className="w-5 h-5 mr-2 text-green-400" />
+                  Recent Deposits
+                </h3>
                 <div className="space-y-3">
                   {depositRequests.slice(0, 5).map((deposit) => (
                     <div key={deposit.id} className="flex items-center justify-between p-3 bg-slate-700 rounded-lg">
@@ -221,11 +279,7 @@ const AdminDashboard: React.FC = () => {
                           ${deposit.amount.toLocaleString()} {deposit.currency}
                         </p>
                       </div>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        deposit.status === 'confirmed' ? 'bg-green-500/20 text-green-400' :
-                        deposit.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
-                        'bg-red-500/20 text-red-400'
-                      }`}>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(deposit.status)}`}>
                         {deposit.status}
                       </span>
                     </div>
@@ -234,18 +288,21 @@ const AdminDashboard: React.FC = () => {
               </div>
 
               <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
-                <h3 className="text-lg font-semibold text-white mb-4">Active Investments</h3>
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+                  <ArrowDownLeft className="w-5 h-5 mr-2 text-red-400" />
+                  Recent Withdrawals
+                </h3>
                 <div className="space-y-3">
-                  {investments.filter(inv => inv.status === 'active').slice(0, 5).map((investment) => (
-                    <div key={investment.id} className="flex items-center justify-between p-3 bg-slate-700 rounded-lg">
+                  {withdrawalRequests.slice(0, 5).map((withdrawal) => (
+                    <div key={withdrawal.id} className="flex items-center justify-between p-3 bg-slate-700 rounded-lg">
                       <div>
-                        <p className="text-white font-medium">{investment.plan.name}</p>
+                        <p className="text-white font-medium">{withdrawal.userName}</p>
                         <p className="text-slate-400 text-sm">
-                          ${investment.amount.toLocaleString()}
+                          ${withdrawal.amount.toLocaleString()} {withdrawal.currency}
                         </p>
                       </div>
-                      <span className="text-green-400 text-sm font-medium">
-                        {investment.roi}% ROI
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(withdrawal.status)}`}>
+                        {withdrawal.status}
                       </span>
                     </div>
                   ))}
@@ -335,7 +392,10 @@ const AdminDashboard: React.FC = () => {
         {/* Deposits Tab */}
         {activeTab === 'deposits' && (
           <div className="space-y-6">
-            <h3 className="text-lg font-semibold text-white">Deposit Management</h3>
+            <h3 className="text-lg font-semibold text-white flex items-center">
+              <CreditCard className="w-5 h-5 mr-2" />
+              Deposit Management
+            </h3>
             
             <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
               <div className="overflow-x-auto">
@@ -375,13 +435,15 @@ const AdminDashboard: React.FC = () => {
                           <div className="text-sm text-white">{deposit.currency}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            deposit.status === 'confirmed' ? 'bg-green-500/20 text-green-400' :
-                            deposit.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
-                            'bg-red-500/20 text-red-400'
-                          }`}>
-                            {deposit.status}
-                          </span>
+                          <select
+                            value={deposit.status}
+                            onChange={(e) => handleDepositStatusChange(deposit.id, e.target.value as any, deposit.userId)}
+                            className={`px-2 py-1 rounded-full text-xs font-medium bg-slate-700 border border-slate-600 text-white focus:outline-none focus:ring-2 focus:ring-yellow-400`}
+                          >
+                            <option value="pending">Pending</option>
+                            <option value="confirmed">Confirmed</option>
+                            <option value="rejected">Rejected</option>
+                          </select>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-slate-400">
@@ -389,22 +451,126 @@ const AdminDashboard: React.FC = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          {deposit.status === 'pending' && (
-                            <div className="flex space-x-2">
-                              <button
-                                onClick={() => handleApproveDeposit(deposit.id, deposit.userId, deposit.amount)}
-                                className="text-green-400 hover:text-green-300"
-                              >
-                                <CheckCircle className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleRejectDeposit(deposit.id)}
-                                className="text-red-400 hover:text-red-300"
-                              >
-                                <XCircle className="w-4 h-4" />
-                              </button>
-                            </div>
-                          )}
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => handleDepositStatusChange(deposit.id, 'confirmed', deposit.userId)}
+                              className="text-green-400 hover:text-green-300"
+                              title="Approve"
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDepositStatusChange(deposit.id, 'rejected', deposit.userId)}
+                              className="text-red-400 hover:text-red-300"
+                              title="Reject"
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Withdrawals Tab */}
+        {activeTab === 'withdrawals' && (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold text-white flex items-center">
+              <ArrowDownLeft className="w-5 h-5 mr-2" />
+              Withdrawal Management
+            </h3>
+            
+            <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-700">
+                  <thead className="bg-slate-700">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
+                        User
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
+                        Amount
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
+                        Currency
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
+                        Wallet Address
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-slate-800 divide-y divide-slate-700">
+                    {withdrawalRequests.map((withdrawal) => (
+                      <tr key={withdrawal.id}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-white">{withdrawal.userName}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-white">${withdrawal.amount.toLocaleString()}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-white">{withdrawal.currency}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-slate-400 font-mono text-xs max-w-32 truncate" title={withdrawal.walletAddress}>
+                            {withdrawal.walletAddress}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <select
+                            value={withdrawal.status}
+                            onChange={(e) => handleWithdrawalStatusChange(withdrawal.id, e.target.value as any, withdrawal.userId)}
+                            className={`px-2 py-1 rounded-full text-xs font-medium bg-slate-700 border border-slate-600 text-white focus:outline-none focus:ring-2 focus:ring-yellow-400`}
+                          >
+                            <option value="pending">Pending</option>
+                            <option value="approved">Approved</option>
+                            <option value="completed">Completed</option>
+                            <option value="rejected">Rejected</option>
+                          </select>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-slate-400">
+                            {new Date(withdrawal.createdAt).toLocaleDateString()}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => handleWithdrawalStatusChange(withdrawal.id, 'approved', withdrawal.userId)}
+                              className="text-blue-400 hover:text-blue-300"
+                              title="Approve"
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleWithdrawalStatusChange(withdrawal.id, 'completed', withdrawal.userId)}
+                              className="text-green-400 hover:text-green-300"
+                              title="Mark as Completed"
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleWithdrawalStatusChange(withdrawal.id, 'rejected', withdrawal.userId)}
+                              className="text-red-400 hover:text-red-300"
+                              title="Reject"
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

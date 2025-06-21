@@ -11,6 +11,7 @@ import UserDashboard from './pages/UserDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import InvestmentPlans from './pages/InvestmentPlans';
 import DepositPage from './pages/DepositPage';
+import WithdrawPage from './pages/WithdrawPage';
 import ProfilePage from './pages/ProfilePage';
 import AboutPage from './pages/AboutPage';
 import ContactPage from './pages/ContactPage';
@@ -46,6 +47,11 @@ function App() {
               <Route path="/deposit" element={
                 <ProtectedRoute>
                   <DepositPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/withdraw" element={
+                <ProtectedRoute>
+                  <WithdrawPage />
                 </ProtectedRoute>
               } />
               <Route path="/profile" element={

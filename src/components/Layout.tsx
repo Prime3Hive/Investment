@@ -1,7 +1,7 @@
 import React, { ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { TrendingUp, User, LogOut, Settings, Menu, X } from 'lucide-react';
+import { TrendingUp, User, LogOut, Settings, Menu, X, ArrowDownLeft } from 'lucide-react';
 
 interface LayoutProps {
   children: ReactNode;
@@ -31,6 +31,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { path: '/dashboard', label: 'Dashboard' },
     { path: '/invest', label: 'Invest' },
     { path: '/deposit', label: 'Deposit' },
+    { path: '/withdraw', label: 'Withdraw' },
     { path: '/profile', label: 'Profile' },
   ];
 
@@ -223,6 +224,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <ul className="space-y-2 text-slate-400 text-sm">
                 <li><Link to="/invest" className="hover:text-white transition-colors">Investment Plans</Link></li>
                 <li><Link to="/deposit" className="hover:text-white transition-colors">Make Deposit</Link></li>
+                <li><Link to="/withdraw" className="hover:text-white transition-colors">Withdraw Funds</Link></li>
                 <li><Link to="/dashboard" className="hover:text-white transition-colors">Dashboard</Link></li>
               </ul>
             </div>
