@@ -42,12 +42,12 @@ const TermsPage: React.FC = () => {
               </div>
               <div className="text-slate-300 space-y-3">
                 <p>
-                  By accessing and using InvestPro's services, you acknowledge that you have read, understood, 
+                  By accessing and using Profitra's services, you acknowledge that you have read, understood, 
                   and agree to be bound by these Terms and Conditions. If you do not agree to these terms, 
                   please do not use our services.
                 </p>
                 <p>
-                  These terms constitute a legally binding agreement between you and InvestPro. We reserve 
+                  These terms constitute a legally binding agreement between you and Profitra. We reserve 
                   the right to modify these terms at any time, and such modifications will be effective 
                   immediately upon posting.
                 </p>
@@ -64,7 +64,7 @@ const TermsPage: React.FC = () => {
               </div>
               <div className="text-slate-300 space-y-3">
                 <p>
-                  InvestPro provides cryptocurrency investment services through various investment plans. 
+                  Profitra provides cryptocurrency investment services through various investment plans. 
                   Our services include:
                 </p>
                 <ul className="list-disc list-inside space-y-1 ml-4">
@@ -99,7 +99,7 @@ const TermsPage: React.FC = () => {
                 </ul>
                 <p>
                   You are solely responsible for all activities that occur under your account. 
-                  InvestPro is not liable for any losses resulting from unauthorized use of your account.
+                  Profitra is not liable for any losses resulting from unauthorized use of your account.
                 </p>
               </div>
             </section>
@@ -167,7 +167,7 @@ const TermsPage: React.FC = () => {
               <h2 className="text-xl font-semibold text-white mb-4">7. Limitation of Liability</h2>
               <div className="text-slate-300 space-y-3">
                 <p>
-                  InvestPro's liability is limited to the maximum extent permitted by law. We are not liable for:
+                  Profitra's liability is limited to the maximum extent permitted by law. We are not liable for:
                 </p>
                 <ul className="list-disc list-inside space-y-1 ml-4">
                   <li>Investment losses due to market conditions</li>
@@ -184,7 +184,7 @@ const TermsPage: React.FC = () => {
               <h2 className="text-xl font-semibold text-white mb-4">8. Account Termination</h2>
               <div className="text-slate-300 space-y-3">
                 <p>
-                  Either party may terminate the service agreement at any time. InvestPro reserves the right to:
+                  Either party may terminate the service agreement at any time. Profitra reserves the right to:
                 </p>
                 <ul className="list-disc list-inside space-y-1 ml-4">
                   <li>Suspend or terminate accounts for violations of these terms</li>
@@ -204,7 +204,7 @@ const TermsPage: React.FC = () => {
               <div className="text-slate-300 space-y-3">
                 <p>
                   These Terms and Conditions are governed by and construed in accordance with the laws 
-                  of the jurisdiction where InvestPro is incorporated. Any disputes arising from these 
+                  of the jurisdiction where Profitra is incorporated. Any disputes arising from these 
                   terms will be resolved through binding arbitration.
                 </p>
               </div>
@@ -218,7 +218,7 @@ const TermsPage: React.FC = () => {
                   If you have any questions about these Terms and Conditions, please contact us:
                 </p>
                 <ul className="list-none space-y-1 ml-4">
-                  <li>Email: legal@investpro.com</li>
+                  <li>Email: legal@profitra.com</li>
                   <li>Phone: +1 (555) 123-4567</li>
                   <li>Address: 123 Financial District, New York, NY 10004</li>
                 </ul>
@@ -230,7 +230,7 @@ const TermsPage: React.FC = () => {
         {/* Footer Notice */}
         <div className="mt-8 text-center">
           <p className="text-slate-400 text-sm">
-            By continuing to use InvestPro, you acknowledge that you have read and understood these terms.
+            By continuing to use Profitra, you acknowledge that you have read and understood these terms.
           </p>
         </div>
       </div>

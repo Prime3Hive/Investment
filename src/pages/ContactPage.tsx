@@ -44,7 +44,7 @@ const ContactPage: React.FC = () => {
     {
       icon: Mail,
       title: 'Email Support',
-      details: 'support@investpro.com',
+      details: 'support@profitra.com',
       description: '24/7 email support'
     },
     {

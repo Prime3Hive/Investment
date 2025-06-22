@@ -123,12 +123,6 @@ const LoginPage: React.FC = () => {
               </Link>
             </p>
           </div>
-
-          <div className="mt-6 p-4 bg-slate-700/50 rounded-lg">
-            <p className="text-xs text-slate-400 mb-2">Demo Credentials:</p>
-            <p className="text-xs text-slate-300">Admin: admin@investment.com / admin123</p>
-            <p className="text-xs text-slate-300">Or register as a new user</p>
-          </div>
         </div>
       </div>
     </div>

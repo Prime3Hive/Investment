@@ -62,7 +62,7 @@ const AboutPage: React.FC = () => {
         {/* Hero Section */}
         <div className="text-center mb-16">
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">
-            About <span className="bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">InvestPro</span>
+            About <span className="bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">Profitra</span>
           </h1>
           <p className="text-xl text-slate-300 max-w-3xl mx-auto">
             We're revolutionizing cryptocurrency investment with secure, transparent, and profitable solutions 
@@ -101,7 +101,7 @@ const AboutPage: React.FC = () => {
         {/* Features Grid */}
         <div className="mb-16">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-white mb-4">Why Choose InvestPro?</h2>
+            <h2 className="text-3xl font-bold text-white mb-4">Why Choose Profitra?</h2>
             <p className="text-lg text-slate-300 max-w-2xl mx-auto">
               We combine cutting-edge technology with proven investment strategies to deliver exceptional results.
             </p>
@@ -192,7 +192,7 @@ const AboutPage: React.FC = () => {
         <div className="text-center bg-gradient-to-r from-yellow-400/10 to-yellow-600/10 rounded-2xl p-8 md:p-12">
           <h2 className="text-3xl font-bold text-white mb-4">Ready to Start Your Investment Journey?</h2>
           <p className="text-lg text-slate-300 mb-8 max-w-2xl mx-auto">
-            Join thousands of satisfied investors who have chosen InvestPro as their trusted investment partner.
+            Join thousands of satisfied investors who have chosen Profitra as their trusted investment partner.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <a

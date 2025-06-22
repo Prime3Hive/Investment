@@ -46,7 +46,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <div className="w-8 h-8 bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-lg flex items-center justify-center">
                 <TrendingUp className="w-5 h-5 text-slate-900" />
               </div>
-              <span className="text-xl font-bold text-white">InvestPro</span>
+              <span className="text-xl font-bold text-white">Profitra</span>
             </Link>
 
             {/* Desktop Navigation */}
@@ -203,7 +203,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <div className="w-8 h-8 bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-lg flex items-center justify-center">
                   <TrendingUp className="w-5 h-5 text-slate-900" />
                 </div>
-                <span className="text-xl font-bold text-white">InvestPro</span>
+                <span className="text-xl font-bold text-white">Profitra</span>
               </div>
               <p className="text-slate-400 text-sm">
                 Your trusted partner in cryptocurrency investment and wealth building.
@@ -232,7 +232,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <div>
               <h3 className="text-white font-semibold mb-4">Support</h3>
               <ul className="space-y-2 text-slate-400 text-sm">
-                <li>Email: support@investpro.com</li>
+                <li>Email: support@profitra.com</li>
                 <li>Phone: +1 (555) 123-4567</li>
                 <li>24/7 Customer Support</li>
               </ul>
@@ -240,7 +240,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </div>
           
           <div className="border-t border-slate-700/50 mt-8 pt-8 text-center text-slate-400 text-sm">
-            <p>&copy; 2024 InvestPro. All rights reserved. Investment involves risk.</p>
+            <p>&copy; 2024 Profitra. All rights reserved. Investment involves risk.</p>
           </div>
         </div>
       </footer>

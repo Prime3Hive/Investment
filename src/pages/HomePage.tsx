@@ -35,13 +35,13 @@ const HomePage: React.FC = () => {
     {
       name: 'Sarah Johnson',
       role: 'Investor',
-      content: 'InvestPro has transformed my investment portfolio. The returns are excellent and the platform is incredibly user-friendly.',
+      content: 'Profitra has transformed my investment portfolio. The returns are excellent and the platform is incredibly user-friendly.',
       rating: 5
     },
     {
       name: 'Michael Chen',
       role: 'Trader',
-      content: 'I\'ve been using InvestPro for 6 months now. The consistent profits and reliable service make it my go-to platform.',
+      content: 'I\'ve been using Profitra for 6 months now. The consistent profits and reliable service make it my go-to platform.',
       rating: 5
     },
     {
@@ -178,7 +178,7 @@ const HomePage: React.FC = () => {
       <section className="py-20 px-4 bg-slate-800/30">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-white mb-4">Why Choose InvestPro?</h2>
+            <h2 className="text-4xl font-bold text-white mb-4">Why Choose Profitra?</h2>
             <p className="text-xl text-slate-300 max-w-2xl mx-auto">
               We provide the tools and expertise you need to succeed in cryptocurrency investment
             </p>
@@ -204,7 +204,7 @@ const HomePage: React.FC = () => {
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-white mb-4">What Our Investors Say</h2>
             <p className="text-xl text-slate-300 max-w-2xl mx-auto">
-              Join thousands of satisfied investors who trust InvestPro with their investments
+              Join thousands of satisfied investors who trust Profitra with their investments
             </p>
           </div>
 
@@ -232,7 +232,7 @@ const HomePage: React.FC = () => {
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-4xl font-bold text-white mb-4">Ready to Start Investing?</h2>
           <p className="text-xl text-slate-300 mb-8">
-            Join InvestPro today and take the first step towards financial freedom
+            Join Profitra today and take the first step towards financial freedom
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
