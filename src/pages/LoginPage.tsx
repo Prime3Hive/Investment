@@ -9,8 +9,16 @@ const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect if user is already logged in
+  React.useEffect(() => {
+    if (user && !authLoading) {
+      console.log('🔄 User already logged in, redirecting to dashboard');
+      navigate('/dashboard');
+    }
+  }, [user, authLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,8 +30,8 @@ const LoginPage: React.FC = () => {
       const success = await login(email, password);
       
       if (success) {
-        console.log('✅ Login successful, redirecting to dashboard');
-        navigate('/dashboard');
+        console.log('✅ Login successful, waiting for user state update...');
+        // Don't navigate here - let the useEffect handle it when user state updates
       } else {
         setError('Invalid email or password, or email not verified. Please check your credentials and ensure your email is verified.');
       }
@@ -34,6 +42,18 @@ const LoginPage: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+  // Show loading state while authenticating
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
+          <p className="text-slate-400">Signing you in...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">

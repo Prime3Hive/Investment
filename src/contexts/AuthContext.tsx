@@ -122,7 +122,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setIsLoading(false);
       } else if (event === 'TOKEN_REFRESHED' && session?.user) {
         console.log('🔄 Token refreshed');
-        if (session.user.email_confirmed_at) {
+        if (session.user.email_confirmed_at && !user) {
           await fetchOrCreateUserProfile(session.user);
         }
       } else {
@@ -131,7 +131,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [user]);
 
   const fetchOrCreateUserProfile = async (authUser: SupabaseUser) => {
     try {
@@ -152,7 +152,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (profile) {
         console.log('✅ Profile found:', profile);
-        setUser({
+        const userData = {
           id: profile.id,
           name: profile.name,
           email: authUser.email || '',
@@ -162,8 +162,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           isAdmin: profile.is_admin || false,
           createdAt: new Date(profile.created_at),
           emailConfirmed: !!authUser.email_confirmed_at
-        });
+        };
+        
+        setUser(userData);
         setIsLoading(false);
+        console.log('✅ User state updated successfully');
         return;
       }
 
@@ -235,7 +238,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (profile) {
         console.log('✅ Profile created successfully:', profile);
-        setUser({
+        const userData = {
           id: profile.id,
           name: profile.name,
           email: authUser.email || '',
@@ -245,21 +248,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           isAdmin: profile.is_admin || false,
           createdAt: new Date(profile.created_at),
           emailConfirmed: !!authUser.email_confirmed_at
-        });
+        };
+        
+        setUser(userData);
+        setIsLoading(false);
+        console.log('✅ User state updated after profile creation');
       }
     } catch (error) {
       console.error('❌ Error creating profile:', error);
-    } finally {
       setIsLoading(false);
     }
   };
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    setIsLoading(true);
+    console.log('🔐 Starting login process for:', email);
     
     try {
-      console.log('🔐 Attempting login for:', email);
-      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -267,7 +271,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (error) {
         console.error('❌ Login error:', error);
-        setIsLoading(false);
         return false;
       }
 
@@ -277,19 +280,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         
         if (!data.user.email_confirmed_at) {
           console.log('⚠️ Email not confirmed');
-          setIsLoading(false);
           return false;
         }
         
-        // Profile will be fetched by the auth state change listener
+        // The auth state change listener will handle profile fetching and loading state
+        console.log('🔄 Waiting for auth state change to complete...');
         return true;
       }
       
-      setIsLoading(false);
       return false;
     } catch (error) {
       console.error('❌ Login error:', error);
-      setIsLoading(false);
       return false;
     }
   };
