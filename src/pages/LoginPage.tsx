@@ -18,17 +18,17 @@ const LoginPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      console.log('Login form submitted for:', email);
+      console.log('🔐 Login form submitted for:', email);
       const success = await login(email, password);
       
       if (success) {
-        console.log('Login successful, redirecting to dashboard');
+        console.log('✅ Login successful, redirecting to dashboard');
         navigate('/dashboard');
       } else {
         setError('Invalid email or password. Please check your credentials and try again.');
       }
     } catch (err) {
-      console.error('Login form error:', err);
+      console.error('❌ Login form error:', err);
       setError('An error occurred during login. Please try again.');
     } finally {
       setIsLoading(false);
