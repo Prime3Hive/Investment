@@ -54,6 +54,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         
         if (error) {
           console.error('❌ Error getting session:', error);
+          
+          // Check if the error is related to invalid refresh token
+          if (error.message?.includes('Invalid Refresh Token') || 
+              error.message?.includes('Refresh Token Not Found') ||
+              error.message?.includes('refresh_token_not_found')) {
+            console.log('🧹 Clearing stale authentication tokens...');
+            await supabase.auth.signOut();
+          }
+          
           setIsLoading(false);
           return;
         }
@@ -75,6 +84,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       } catch (error) {
         console.error('❌ Error in getInitialSession:', error);
+        
+        // Check if the caught error is related to invalid refresh token
+        if (error instanceof Error && 
+            (error.message?.includes('Invalid Refresh Token') || 
+             error.message?.includes('Refresh Token Not Found') ||
+             error.message?.includes('refresh_token_not_found'))) {
+          console.log('🧹 Clearing stale authentication tokens due to caught error...');
+          await supabase.auth.signOut();
+        }
+        
         setIsLoading(false);
       }
     };
