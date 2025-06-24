@@ -14,13 +14,13 @@ import {
   Eye,
   RefreshCw,
   User,
-  Calendar
+  Calendar,
+  AlertCircle
 } from 'lucide-react';
 
 const UserDashboard: React.FC = () => {
   const { user } = useAuth();
-  const { getUserInvestments, getUserTransactions, refreshData } = useData();
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const { getUserInvestments, getUserTransactions, refreshData, isLoading, error } = useData();
 
   // Memoize expensive calculations
   const { investments, transactions, stats } = useMemo(() => {
@@ -75,13 +75,10 @@ const UserDashboard: React.FC = () => {
   }, [user, getUserInvestments, getUserTransactions]);
 
   const handleRefresh = async () => {
-    setIsRefreshing(true);
     try {
       await refreshData();
     } catch (error) {
       console.error('❌ Error refreshing data:', error);
-    } finally {
-      setIsRefreshing(false);
     }
   };
 
@@ -125,14 +122,22 @@ const UserDashboard: React.FC = () => {
             </div>
             <button
               onClick={handleRefresh}
-              disabled={isRefreshing}
+              disabled={isLoading}
               className="flex items-center space-x-2 px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-slate-300 hover:text-white hover:border-slate-500 transition-colors disabled:opacity-50"
             >
-              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
               <span>Refresh</span>
             </button>
           </div>
         </div>
+
+        {/* Error Display */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center space-x-2">
+            <AlertCircle className="w-5 h-5 text-red-400" />
+            <span className="text-red-400 text-sm">{error}</span>
+          </div>
+        )}
 
         {/* User Info Card */}
         <div className="mb-8 bg-gradient-to-r from-slate-800 to-slate-700 rounded-lg p-6 border border-slate-600">
@@ -276,9 +281,9 @@ const UserDashboard: React.FC = () => {
               <button 
                 onClick={handleRefresh}
                 className="text-yellow-400 hover:text-yellow-300"
-                disabled={isRefreshing}
+                disabled={isLoading}
               >
-                <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
               </button>
             </div>
 
