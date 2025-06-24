@@ -46,20 +46,46 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        fetchUserProfile(session.user);
-      } else {
+    const getInitialSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error getting session:', error);
+          setIsLoading(false);
+          return;
+        }
+
+        if (session?.user) {
+          console.log('Initial session found, fetching profile...');
+          await fetchUserProfile(session.user);
+        } else {
+          console.log('No initial session found');
+          setIsLoading(false);
+        }
+      } catch (error) {
+        console.error('Error in getInitialSession:', error);
         setIsLoading(false);
       }
-    });
+    };
+
+    getInitialSession();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
+      console.log('Auth state changed:', event, session?.user?.id);
+      
+      if (event === 'SIGNED_IN' && session?.user) {
+        console.log('User signed in, fetching profile...');
+        await fetchUserProfile(session.user);
+      } else if (event === 'SIGNED_OUT') {
+        console.log('User signed out');
+        setUser(null);
+        setIsLoading(false);
+      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+        console.log('Token refreshed, updating profile...');
         await fetchUserProfile(session.user);
       } else {
-        setUser(null);
         setIsLoading(false);
       }
     });
@@ -69,6 +95,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const fetchUserProfile = async (authUser: SupabaseUser) => {
     try {
+      console.log('Fetching profile for user:', authUser.id);
+      
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
@@ -77,19 +105,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (error) {
         console.error('Error fetching profile:', error);
+        
+        // If profile doesn't exist, try to create it
+        if (error.code === 'PGRST116') {
+          console.log('Profile not found, creating new profile...');
+          await createUserProfile(authUser);
+          return;
+        }
+        
         setIsLoading(false);
         return;
       }
 
       if (profile) {
+        console.log('Profile fetched successfully:', profile);
         setUser({
           id: profile.id,
           name: profile.name,
           email: authUser.email || '',
           btcWallet: profile.btc_wallet,
           usdtWallet: profile.usdt_wallet,
-          balance: profile.balance,
-          isAdmin: profile.is_admin,
+          balance: parseFloat(profile.balance) || 0,
+          isAdmin: profile.is_admin || false,
           createdAt: new Date(profile.created_at)
         });
       }
@@ -100,10 +137,55 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const createUserProfile = async (authUser: SupabaseUser) => {
+    try {
+      console.log('Creating profile for user:', authUser.id);
+      
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .insert({
+          id: authUser.id,
+          name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
+          btc_wallet: authUser.user_metadata?.btc_wallet || '',
+          usdt_wallet: authUser.user_metadata?.usdt_wallet || '',
+          balance: 0,
+          is_admin: false
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating profile:', error);
+        setIsLoading(false);
+        return;
+      }
+
+      if (profile) {
+        console.log('Profile created successfully:', profile);
+        setUser({
+          id: profile.id,
+          name: profile.name,
+          email: authUser.email || '',
+          btcWallet: profile.btc_wallet,
+          usdtWallet: profile.usdt_wallet,
+          balance: parseFloat(profile.balance) || 0,
+          isAdmin: profile.is_admin || false,
+          createdAt: new Date(profile.created_at)
+        });
+      }
+    } catch (error) {
+      console.error('Error creating profile:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     
     try {
+      console.log('Attempting login for:', email);
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -116,7 +198,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       if (data.user) {
-        await fetchUserProfile(data.user);
+        console.log('Login successful, user:', data.user.id);
+        // Profile will be fetched by the auth state change listener
         return true;
       }
       
@@ -133,6 +216,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoading(true);
     
     try {
+      console.log('Attempting registration for:', userData.email);
+      
       const { data, error } = await supabase.auth.signUp({
         email: userData.email,
         password: userData.password,
@@ -152,8 +237,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       if (data.user) {
-        // Profile will be created automatically by the trigger
-        await fetchUserProfile(data.user);
+        console.log('Registration successful, user:', data.user.id);
+        // Profile will be created by the trigger or auth state change listener
         return true;
       }
       
@@ -167,6 +252,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const logout = async () => {
+    console.log('Logging out user');
     await supabase.auth.signOut();
     setUser(null);
   };

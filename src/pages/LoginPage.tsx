@@ -18,14 +18,18 @@ const LoginPage: React.FC = () => {
     setIsLoading(true);
 
     try {
+      console.log('Login form submitted for:', email);
       const success = await login(email, password);
+      
       if (success) {
+        console.log('Login successful, redirecting to dashboard');
         navigate('/dashboard');
       } else {
-        setError('Invalid email or password');
+        setError('Invalid email or password. Please check your credentials and try again.');
       }
     } catch (err) {
-      setError('An error occurred. Please try again.');
+      console.error('Login form error:', err);
+      setError('An error occurred during login. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -38,8 +42,8 @@ const LoginPage: React.FC = () => {
           <div className="mx-auto h-12 w-12 bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-lg flex items-center justify-center mb-4">
             <LogIn className="h-6 w-6 text-slate-900" />
           </div>
-          <h2 className="text-3xl font-bold text-white">Welcome back</h2>
-          <p className="mt-2 text-slate-400">Sign in to your account</p>
+          <h2 className="text-3xl font-bold text-white">Welcome back to Profitra</h2>
+          <p className="mt-2 text-slate-400">Sign in to your investment account</p>
         </div>
 
         <div className="bg-slate-800 rounded-lg p-8 border border-slate-700">
