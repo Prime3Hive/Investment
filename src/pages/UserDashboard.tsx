@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
@@ -19,53 +19,70 @@ import {
 
 const UserDashboard: React.FC = () => {
   const { user } = useAuth();
-  const { getUserInvestments, getUserTransactions, investmentPlans, refreshData } = useData();
-  const [investments, setInvestments] = useState<any[]>([]);
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [activeInvestments, setActiveInvestments] = useState(0);
-  const [totalProfit, setTotalProfit] = useState(0);
+  const { getUserInvestments, getUserTransactions, refreshData } = useData();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      console.log('📊 Loading dashboard data for user:', user.id);
-      loadDashboardData();
-    }
-  }, [user, getUserInvestments, getUserTransactions]);
+  // Memoize expensive calculations
+  const { investments, transactions, stats } = useMemo(() => {
+    if (!user) return { investments: [], transactions: [], stats: null };
 
-  const loadDashboardData = async () => {
-    if (!user) return;
+    const userInvestments = getUserInvestments(user.id);
+    const userTransactions = getUserTransactions(user.id).slice(0, 5); // Latest 5 only
     
-    try {
-      console.log('🔄 Refreshing dashboard data...');
-      await refreshData();
-      
-      const userInvestments = getUserInvestments(user.id);
-      const userTransactions = getUserTransactions(user.id);
-      
-      console.log('📈 User investments:', userInvestments);
-      console.log('💰 User transactions:', userTransactions);
-      
-      setInvestments(userInvestments);
-      setTransactions(userTransactions.slice(0, 5)); // Show latest 5 transactions
-      setActiveInvestments(userInvestments.filter(inv => inv.status === 'active').length);
-      
-      // Calculate total profit from completed investments
-      const profit = userInvestments
-        .filter(inv => inv.status === 'completed')
-        .reduce((sum, inv) => sum + (inv.amount * (inv.roi / 100)), 0);
-      setTotalProfit(profit);
-      
-      console.log('✅ Dashboard data loaded successfully');
-    } catch (error) {
-      console.error('❌ Error loading dashboard data:', error);
-    }
-  };
+    const activeInvestments = userInvestments.filter(inv => inv.status === 'active').length;
+    const totalProfit = userInvestments
+      .filter(inv => inv.status === 'completed')
+      .reduce((sum, inv) => sum + (inv.amount * (inv.roi / 100)), 0);
+    
+    const pendingTransactions = userTransactions.filter(t => t.status === 'pending').length;
+
+    const calculatedStats = [
+      {
+        title: 'Total Balance',
+        value: `$${user.balance?.toLocaleString() || '0'}`,
+        icon: Wallet,
+        color: 'from-green-400 to-green-600',
+        change: '+2.5%'
+      },
+      {
+        title: 'Active Investments',
+        value: activeInvestments.toString(),
+        icon: TrendingUp,
+        color: 'from-blue-400 to-blue-600',
+        change: '+1'
+      },
+      {
+        title: 'Total Profit',
+        value: `$${totalProfit.toLocaleString()}`,
+        icon: DollarSign,
+        color: 'from-yellow-400 to-yellow-600',
+        change: '+15.3%'
+      },
+      {
+        title: 'Pending Transactions',
+        value: pendingTransactions.toString(),
+        icon: Clock,
+        color: 'from-purple-400 to-purple-600',
+        change: '0'
+      }
+    ];
+
+    return {
+      investments: userInvestments,
+      transactions: userTransactions,
+      stats: calculatedStats
+    };
+  }, [user, getUserInvestments, getUserTransactions]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await loadDashboardData();
-    setIsRefreshing(false);
+    try {
+      await refreshData();
+    } catch (error) {
+      console.error('❌ Error refreshing data:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const formatTimeLeft = (endDate: Date) => {
@@ -80,37 +97,6 @@ const UserDashboard: React.FC = () => {
     
     return `${hours}h ${minutes}m`;
   };
-
-  const stats = [
-    {
-      title: 'Total Balance',
-      value: `$${user?.balance?.toLocaleString() || '0'}`,
-      icon: Wallet,
-      color: 'from-green-400 to-green-600',
-      change: '+2.5%'
-    },
-    {
-      title: 'Active Investments',
-      value: activeInvestments.toString(),
-      icon: TrendingUp,
-      color: 'from-blue-400 to-blue-600',
-      change: '+1'
-    },
-    {
-      title: 'Total Profit',
-      value: `$${totalProfit.toLocaleString()}`,
-      icon: DollarSign,
-      color: 'from-yellow-400 to-yellow-600',
-      change: '+15.3%'
-    },
-    {
-      title: 'Pending Transactions',
-      value: transactions.filter(t => t.status === 'pending').length.toString(),
-      icon: Clock,
-      color: 'from-purple-400 to-purple-600',
-      change: '0'
-    }
-  ];
 
   if (!user) {
     return (
@@ -176,25 +162,27 @@ const UserDashboard: React.FC = () => {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {stats.map((stat, index) => (
-            <div key={index} className="bg-slate-800 rounded-lg p-6 border border-slate-700">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-slate-400 text-sm mb-1">{stat.title}</p>
-                  <p className="text-2xl font-bold text-white">{stat.value}</p>
-                  <p className="text-green-400 text-sm mt-1 flex items-center">
-                    <ArrowUpRight className="w-3 h-3 mr-1" />
-                    {stat.change}
-                  </p>
-                </div>
-                <div className={`w-12 h-12 bg-gradient-to-r ${stat.color} rounded-lg flex items-center justify-center`}>
-                  <stat.icon className="w-6 h-6 text-white" />
+        {stats && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {stats.map((stat, index) => (
+              <div key={index} className="bg-slate-800 rounded-lg p-6 border border-slate-700">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-slate-400 text-sm mb-1">{stat.title}</p>
+                    <p className="text-2xl font-bold text-white">{stat.value}</p>
+                    <p className="text-green-400 text-sm mt-1 flex items-center">
+                      <ArrowUpRight className="w-3 h-3 mr-1" />
+                      {stat.change}
+                    </p>
+                  </div>
+                  <div className={`w-12 h-12 bg-gradient-to-r ${stat.color} rounded-lg flex items-center justify-center`}>
+                    <stat.icon className="w-6 h-6 text-white" />
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

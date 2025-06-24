@@ -1,5 +1,5 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { TrendingUp, Shield, Clock, Users, ArrowRight, Star, CheckCircle } from 'lucide-react';
@@ -7,6 +7,26 @@ import { TrendingUp, Shield, Clock, Users, ArrowRight, Star, CheckCircle } from 
 const HomePage: React.FC = () => {
   const { user } = useAuth();
   const { investmentPlans } = useData();
+  const navigate = useNavigate();
+
+  // Redirect logged-in users to dashboard
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
+
+  // Don't render homepage content if user is logged in
+  if (user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
+          <p className="text-slate-400">Redirecting to dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   const features = [
     {
@@ -67,31 +87,19 @@ const HomePage: React.FC = () => {
             Start building wealth today with plans tailored to your financial goals.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            {user ? (
-              <Link
-                to="/dashboard"
-                className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-yellow-400 to-yellow-600 text-slate-900 font-semibold rounded-lg hover:from-yellow-500 hover:to-yellow-700 transition-all duration-300 transform hover:scale-105"
-              >
-                Go to Dashboard
-                <ArrowRight className="ml-2 w-5 h-5" />
-              </Link>
-            ) : (
-              <>
-                <Link
-                  to="/register"
-                  className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-yellow-400 to-yellow-600 text-slate-900 font-semibold rounded-lg hover:from-yellow-500 hover:to-yellow-700 transition-all duration-300 transform hover:scale-105"
-                >
-                  Start Investing
-                  <ArrowRight className="ml-2 w-5 h-5" />
-                </Link>
-                <Link
-                  to="/login"
-                  className="inline-flex items-center px-8 py-4 bg-slate-800 text-white font-semibold rounded-lg hover:bg-slate-700 transition-all duration-300 border border-slate-600"
-                >
-                  Login
-                </Link>
-              </>
-            )}
+            <Link
+              to="/register"
+              className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-yellow-400 to-yellow-600 text-slate-900 font-semibold rounded-lg hover:from-yellow-500 hover:to-yellow-700 transition-all duration-300 transform hover:scale-105"
+            >
+              Start Investing
+              <ArrowRight className="ml-2 w-5 h-5" />
+            </Link>
+            <Link
+              to="/login"
+              className="inline-flex items-center px-8 py-4 bg-slate-800 text-white font-semibold rounded-lg hover:bg-slate-700 transition-all duration-300 border border-slate-600"
+            >
+              Login
+            </Link>
           </div>
         </div>
       </section>
@@ -158,14 +166,14 @@ const HomePage: React.FC = () => {
                   <p className="text-slate-300 text-sm mb-8">{plan.description}</p>
                   
                   <Link
-                    to={user ? "/invest" : "/register"}
-                    className={`w-full py-3 px-6 rounded-lg font-semibold transition-all duration-300 ${
+                    to="/register"
+                    className={`w-full py-3 px-6 rounded-lg font-semibold transition-all duration-300 block text-center ${
                       index === 3
                         ? 'bg-gradient-to-r from-yellow-400 to-yellow-600 text-slate-900 hover:from-yellow-500 hover:to-yellow-700'
                         : 'bg-slate-700 text-white hover:bg-slate-600'
                     }`}
                   >
-                    {user ? 'Invest Now' : 'Get Started'}
+                    Get Started
                   </Link>
                 </div>
               </div>
