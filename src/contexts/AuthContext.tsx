@@ -11,6 +11,7 @@ interface User {
   balance: number;
   isAdmin: boolean;
   createdAt: Date;
+  emailConfirmed: boolean;
 }
 
 interface AuthContextType {
@@ -59,7 +60,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         if (session?.user) {
           console.log('✅ Initial session found for user:', session.user.id);
-          await fetchOrCreateUserProfile(session.user);
+          console.log('📧 Email confirmed:', session.user.email_confirmed_at ? 'Yes' : 'No');
+          
+          // Only fetch profile if email is confirmed
+          if (session.user.email_confirmed_at) {
+            await fetchOrCreateUserProfile(session.user);
+          } else {
+            console.log('⚠️ Email not confirmed, user needs to verify email');
+            setIsLoading(false);
+          }
         } else {
           console.log('ℹ️ No initial session found');
           setIsLoading(false);
@@ -77,15 +86,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.log('🔄 Auth state changed:', event, session?.user?.id);
       
       if (event === 'SIGNED_IN' && session?.user) {
-        console.log('✅ User signed in, fetching/creating profile...');
-        await fetchOrCreateUserProfile(session.user);
+        console.log('✅ User signed in');
+        console.log('📧 Email confirmed:', session.user.email_confirmed_at ? 'Yes' : 'No');
+        
+        // Only proceed if email is confirmed
+        if (session.user.email_confirmed_at) {
+          console.log('✅ Email confirmed, fetching/creating profile...');
+          await fetchOrCreateUserProfile(session.user);
+        } else {
+          console.log('⚠️ Email not confirmed, waiting for verification');
+          setIsLoading(false);
+        }
       } else if (event === 'SIGNED_OUT') {
         console.log('👋 User signed out');
         setUser(null);
         setIsLoading(false);
       } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-        console.log('🔄 Token refreshed, updating profile...');
-        await fetchOrCreateUserProfile(session.user);
+        console.log('🔄 Token refreshed');
+        if (session.user.email_confirmed_at) {
+          await fetchOrCreateUserProfile(session.user);
+        }
       } else {
         setIsLoading(false);
       }
@@ -121,7 +141,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           usdtWallet: profile.usdt_wallet,
           balance: parseFloat(profile.balance) || 0,
           isAdmin: profile.is_admin || false,
-          createdAt: new Date(profile.created_at)
+          createdAt: new Date(profile.created_at),
+          emailConfirmed: !!authUser.email_confirmed_at
         });
         setIsLoading(false);
         return;
@@ -203,7 +224,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           usdtWallet: profile.usdt_wallet,
           balance: parseFloat(profile.balance) || 0,
           isAdmin: profile.is_admin || false,
-          createdAt: new Date(profile.created_at)
+          createdAt: new Date(profile.created_at),
+          emailConfirmed: !!authUser.email_confirmed_at
         });
       }
     } catch (error) {
@@ -232,6 +254,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (data.user) {
         console.log('✅ Login successful for user:', data.user.id);
+        console.log('📧 Email confirmed:', data.user.email_confirmed_at ? 'Yes' : 'No');
+        
+        if (!data.user.email_confirmed_at) {
+          console.log('⚠️ Email not confirmed');
+          setIsLoading(false);
+          return false;
+        }
+        
         // Profile will be fetched by the auth state change listener
         return true;
       }
@@ -271,7 +301,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (data.user) {
         console.log('✅ Registration successful for user:', data.user.id);
-        // Profile will be created by the trigger or auth state change listener
+        console.log('📧 Confirmation email sent to:', userData.email);
+        setIsLoading(false);
         return true;
       }
       

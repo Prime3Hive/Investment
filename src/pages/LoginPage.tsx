@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { LogIn, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { LogIn, Eye, EyeOff, AlertCircle, Mail } from 'lucide-react';
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -25,7 +25,7 @@ const LoginPage: React.FC = () => {
         console.log('✅ Login successful, redirecting to dashboard');
         navigate('/dashboard');
       } else {
-        setError('Invalid email or password. Please check your credentials and try again.');
+        setError('Invalid email or password, or email not verified. Please check your credentials and ensure your email is verified.');
       }
     } catch (err) {
       console.error('❌ Login form error:', err);
@@ -48,9 +48,22 @@ const LoginPage: React.FC = () => {
 
         <div className="bg-slate-800 rounded-lg p-8 border border-slate-700">
           {error && (
-            <div className="mb-4 p-4 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center space-x-2">
-              <AlertCircle className="w-5 h-5 text-red-400" />
-              <span className="text-red-400 text-sm">{error}</span>
+            <div className="mb-4 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+              <div className="flex items-start space-x-2">
+                <AlertCircle className="w-5 h-5 text-red-400 mt-0.5" />
+                <div>
+                  <span className="text-red-400 text-sm">{error}</span>
+                  {error.includes('email not verified') && (
+                    <div className="mt-2 text-xs text-red-300">
+                      <p>Haven't received the verification email?</p>
+                      <div className="flex items-center space-x-1 mt-1">
+                        <Mail className="w-3 h-3" />
+                        <span>Check your spam folder or contact support</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
