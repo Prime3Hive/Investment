@@ -152,8 +152,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       if (data.user) {
-        // Profile will be created automatically by the trigger
-        await fetchUserProfile(data.user);
+        // Don't fetch profile here - the onAuthStateChange listener will handle this
+        // when the user is fully authenticated
+        console.log('Registration successful, check email for confirmation if required');
+        setIsLoading(false);
         return true;
       }
       
