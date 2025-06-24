@@ -73,7 +73,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           
           // Only fetch profile if email is confirmed
           if (session.user.email_confirmed_at) {
-            await fetchOrCreateUserProfile(session.user);
+            await fetchAndSetUserProfile(session.user);
           } else {
             console.log('⚠️ Email not confirmed, user needs to verify email');
             setIsLoading(false);
@@ -111,7 +111,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // Only proceed if email is confirmed
         if (session.user.email_confirmed_at) {
           console.log('✅ Email confirmed, fetching/creating profile...');
-          await fetchOrCreateUserProfile(session.user);
+          await fetchAndSetUserProfile(session.user);
         } else {
           console.log('⚠️ Email not confirmed, waiting for verification');
           setIsLoading(false);
@@ -123,7 +123,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       } else if (event === 'TOKEN_REFRESHED' && session?.user) {
         console.log('🔄 Token refreshed');
         if (session.user.email_confirmed_at && !user) {
-          await fetchOrCreateUserProfile(session.user);
+          await fetchAndSetUserProfile(session.user);
         }
       } else {
         setIsLoading(false);
@@ -133,7 +133,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return () => subscription.unsubscribe();
   }, [user]);
 
-  const fetchOrCreateUserProfile = async (authUser: SupabaseUser) => {
+  const fetchAndSetUserProfile = async (authUser: SupabaseUser) => {
     try {
       console.log('📋 Fetching profile for user:', authUser.id);
       
@@ -150,32 +150,39 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return;
       }
 
-      if (profile) {
-        console.log('✅ Profile found:', profile);
-        const userData = {
-          id: profile.id,
-          name: profile.name,
-          email: authUser.email || '',
-          btcWallet: profile.btc_wallet,
-          usdtWallet: profile.usdt_wallet,
-          balance: parseFloat(profile.balance) || 0,
-          isAdmin: profile.is_admin || false,
-          createdAt: new Date(profile.created_at),
-          emailConfirmed: !!authUser.email_confirmed_at
-        };
+      if (!profile) {
+        console.log('📝 Profile not found, creating new profile...');
+        profile = await createUserProfile(authUser);
         
-        setUser(userData);
-        setIsLoading(false);
-        console.log('✅ User state updated successfully');
-        return;
+        if (!profile) {
+          console.error('❌ Failed to create profile');
+          setIsLoading(false);
+          return;
+        }
       }
 
-      // Profile doesn't exist, create it
-      console.log('📝 Profile not found, creating new profile...');
-      await createUserProfile(authUser);
+      console.log('✅ Profile found/created:', profile);
+      
+      // Merge auth user data with profile data
+      const userData: User = {
+        id: profile.id,
+        name: profile.name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
+        email: authUser.email || '',
+        btcWallet: profile.btc_wallet || '',
+        usdtWallet: profile.usdt_wallet || '',
+        balance: parseFloat(profile.balance) || 0,
+        isAdmin: profile.is_admin || false,
+        createdAt: new Date(profile.created_at),
+        emailConfirmed: !!authUser.email_confirmed_at
+      };
+      
+      console.log('✅ Setting user state:', userData);
+      setUser(userData);
+      setIsLoading(false);
+      console.log('✅ User state updated successfully');
       
     } catch (error) {
-      console.error('❌ Error in fetchOrCreateUserProfile:', error);
+      console.error('❌ Error in fetchAndSetUserProfile:', error);
       setIsLoading(false);
     }
   };
@@ -216,8 +223,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         if (manualError) {
           console.error('❌ Manual profile creation failed:', manualError);
-          setIsLoading(false);
-          return;
+          return null;
         }
 
         // Fetch the manually created profile
@@ -229,34 +235,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         if (fetchError || !manualProfile) {
           console.error('❌ Failed to fetch manually created profile:', fetchError);
-          setIsLoading(false);
-          return;
+          return null;
         }
 
         profile = manualProfile;
       }
 
-      if (profile) {
-        console.log('✅ Profile created successfully:', profile);
-        const userData = {
-          id: profile.id,
-          name: profile.name,
-          email: authUser.email || '',
-          btcWallet: profile.btc_wallet,
-          usdtWallet: profile.usdt_wallet,
-          balance: parseFloat(profile.balance) || 0,
-          isAdmin: profile.is_admin || false,
-          createdAt: new Date(profile.created_at),
-          emailConfirmed: !!authUser.email_confirmed_at
-        };
-        
-        setUser(userData);
-        setIsLoading(false);
-        console.log('✅ User state updated after profile creation');
-      }
+      console.log('✅ Profile created successfully:', profile);
+      return profile;
     } catch (error) {
       console.error('❌ Error creating profile:', error);
-      setIsLoading(false);
+      return null;
     }
   };
 
