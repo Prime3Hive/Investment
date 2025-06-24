@@ -52,35 +52,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       try {
         console.log('🔍 Initializing authentication...');
         
+        // Clear any stale auth state first
+        const { error: signOutError } = await supabase.auth.signOut();
+        if (signOutError && !signOutError.message?.includes('not signed in')) {
+          console.warn('⚠️ Warning during sign out:', signOutError);
+        }
+
+        // Get fresh session
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
           console.error('❌ Error getting session:', error);
-          if (mounted) {
-            setIsLoading(false);
-          }
+          if (mounted) setIsLoading(false);
           return;
         }
 
         if (session?.user?.email_confirmed_at) {
           console.log('✅ Found authenticated user:', session.user.id);
-          await fetchAndSetUserProfile(session.user);
-        } else if (session?.user) {
-          console.log('⚠️ User found but email not confirmed');
-          if (mounted) {
-            setIsLoading(false);
-          }
+          await fetchUserProfile(session.user);
         } else {
           console.log('ℹ️ No authenticated user found');
-          if (mounted) {
-            setIsLoading(false);
-          }
+          if (mounted) setIsLoading(false);
         }
       } catch (error) {
         console.error('❌ Error in initializeAuth:', error);
-        if (mounted) {
-          setIsLoading(false);
-        }
+        if (mounted) setIsLoading(false);
       }
     };
 
@@ -94,7 +90,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (event === 'SIGNED_IN' && session?.user?.email_confirmed_at) {
         console.log('✅ User signed in with confirmed email');
-        await fetchAndSetUserProfile(session.user);
+        await fetchUserProfile(session.user);
       } else if (event === 'SIGNED_OUT') {
         console.log('👋 User signed out');
         setUser(null);
@@ -102,7 +98,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       } else if (event === 'TOKEN_REFRESHED' && session?.user?.email_confirmed_at) {
         console.log('🔄 Token refreshed');
         if (!user) {
-          await fetchAndSetUserProfile(session.user);
+          await fetchUserProfile(session.user);
         } else {
           setIsLoading(false);
         }
@@ -118,92 +114,38 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, []);
 
-  const fetchAndSetUserProfile = async (authUser: SupabaseUser) => {
+  const fetchUserProfile = async (authUser: SupabaseUser) => {
     try {
       console.log('📋 Fetching profile for user:', authUser.id);
       
-      // Add a small delay to ensure database is ready
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Wait a moment for database to be ready
+      await new Promise(resolve => setTimeout(resolve, 200));
       
-      // Try to fetch existing profile with retry logic
-      let profile = null;
-      let attempts = 0;
-      const maxAttempts = 3;
-      
-      while (!profile && attempts < maxAttempts) {
-        attempts++;
-        console.log(`📋 Profile fetch attempt ${attempts}/${maxAttempts}`);
-        
-        try {
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', authUser.id)
-            .single();
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .single();
 
-          if (error) {
-            if (error.code === 'PGRST116') {
-              console.log('📝 Profile not found, will create...');
-              break;
-            } else {
-              console.error(`❌ Error fetching profile (attempt ${attempts}):`, error);
-              if (attempts === maxAttempts) {
-                throw error;
-              }
-              await new Promise(resolve => setTimeout(resolve, 1000));
-              continue;
-            }
-          }
-
-          profile = data;
-          break;
-        } catch (fetchError) {
-          console.error(`❌ Profile fetch error (attempt ${attempts}):`, fetchError);
-          if (attempts === maxAttempts) {
-            throw fetchError;
-          }
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-      }
-
-      if (!profile) {
-        console.log('📝 Creating new profile...');
-        profile = await createUserProfile(authUser);
-        if (!profile) {
-          console.error('❌ Failed to create profile');
+      if (error) {
+        if (error.code === 'PGRST116') {
+          console.log('📝 Profile not found, creating...');
+          await createUserProfile(authUser);
+          return;
+        } else {
+          console.error('❌ Error fetching profile:', error);
           setIsLoading(false);
           return;
         }
       }
 
-      console.log('✅ Profile ready:', profile);
-      setUserFromProfile(profile, authUser);
+      if (profile) {
+        console.log('✅ Profile found:', profile);
+        setUserFromProfile(profile, authUser);
+      }
       
     } catch (error) {
-      console.error('❌ Error in fetchAndSetUserProfile:', error);
-      setIsLoading(false);
-    }
-  };
-
-  const setUserFromProfile = (profile: any, authUser: SupabaseUser) => {
-    try {
-      const userData: User = {
-        id: profile.id,
-        name: profile.name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
-        email: authUser.email || '',
-        btcWallet: profile.btc_wallet || '',
-        usdtWallet: profile.usdt_wallet || '',
-        balance: parseFloat(profile.balance) || 0,
-        isAdmin: profile.is_admin || false,
-        createdAt: new Date(profile.created_at),
-        emailConfirmed: !!authUser.email_confirmed_at
-      };
-      
-      console.log('✅ Setting user state:', userData);
-      setUser(userData);
-      setIsLoading(false);
-    } catch (error) {
-      console.error('❌ Error setting user from profile:', error);
+      console.error('❌ Error in fetchUserProfile:', error);
       setIsLoading(false);
     }
   };
@@ -221,8 +163,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         is_admin: false
       };
 
-      console.log('📝 Profile data to insert:', profileData);
-
       const { data: profile, error } = await supabase
         .from('profiles')
         .insert(profileData)
@@ -232,10 +172,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (error) {
         console.error('❌ Error creating profile:', error);
         
-        // Try using the manual function as fallback
-        console.log('🔄 Trying manual profile creation...');
+        // Try the manual function as fallback
         try {
-          const { error: manualError } = await supabase.rpc('create_missing_profile', {
+          await supabase.rpc('create_missing_profile', {
             user_id: authUser.id,
             user_email: authUser.email || '',
             user_name: authUser.user_metadata?.name || null,
@@ -243,36 +182,56 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             usdt_wallet: authUser.user_metadata?.usdt_wallet || ''
           });
 
-          if (manualError) {
-            console.error('❌ Manual profile creation failed:', manualError);
-            return null;
-          }
-
-          // Fetch the manually created profile
-          const { data: manualProfile, error: fetchError } = await supabase
+          // Fetch the created profile
+          const { data: createdProfile, error: fetchError } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', authUser.id)
             .single();
 
-          if (fetchError || !manualProfile) {
-            console.error('❌ Failed to fetch manually created profile:', fetchError);
-            return null;
+          if (fetchError || !createdProfile) {
+            console.error('❌ Failed to fetch created profile:', fetchError);
+            setIsLoading(false);
+            return;
           }
 
-          console.log('✅ Manual profile creation successful:', manualProfile);
-          return manualProfile;
-        } catch (manualError) {
-          console.error('❌ Manual profile creation exception:', manualError);
-          return null;
+          setUserFromProfile(createdProfile, authUser);
+        } catch (fallbackError) {
+          console.error('❌ Fallback profile creation failed:', fallbackError);
+          setIsLoading(false);
         }
+        return;
       }
 
       console.log('✅ Profile created successfully:', profile);
-      return profile;
+      setUserFromProfile(profile, authUser);
+      
     } catch (error) {
       console.error('❌ Error creating profile:', error);
-      return null;
+      setIsLoading(false);
+    }
+  };
+
+  const setUserFromProfile = (profile: any, authUser: SupabaseUser) => {
+    try {
+      const userData: User = {
+        id: profile.id,
+        name: profile.name || 'User',
+        email: authUser.email || '',
+        btcWallet: profile.btc_wallet || '',
+        usdtWallet: profile.usdt_wallet || '',
+        balance: parseFloat(profile.balance) || 0,
+        isAdmin: profile.is_admin || false,
+        createdAt: new Date(profile.created_at),
+        emailConfirmed: !!authUser.email_confirmed_at
+      };
+      
+      console.log('✅ Setting user state:', userData);
+      setUser(userData);
+      setIsLoading(false);
+    } catch (error) {
+      console.error('❌ Error setting user from profile:', error);
+      setIsLoading(false);
     }
   };
 
@@ -298,7 +257,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           return false;
         }
         
-        // The auth state change listener will handle the rest
         return true;
       }
       
@@ -374,7 +332,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return;
       }
 
-      // Update local user state
       setUser(prev => prev ? { ...prev, ...userData } : null);
       console.log('✅ Profile updated successfully');
     } catch (error) {

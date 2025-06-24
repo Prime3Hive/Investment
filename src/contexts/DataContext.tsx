@@ -101,6 +101,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   useEffect(() => {
+    // Always fetch investment plans (public data)
+    fetchInvestmentPlans();
+    
+    // Fetch user-specific data only if user is logged in
     if (user) {
       refreshData();
     }
@@ -118,6 +122,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const fetchInvestmentPlans = async () => {
     try {
+      console.log('📊 Fetching investment plans...');
       const { data, error } = await supabase
         .from('investment_plans')
         .select('*')
@@ -125,7 +130,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .order('min_amount');
 
       if (error) {
-        console.error('Error fetching investment plans:', error);
+        console.error('❌ Error fetching investment plans:', error);
         return;
       }
 
@@ -140,9 +145,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isActive: plan.is_active
       }));
 
+      console.log('✅ Investment plans loaded:', plans.length);
       setInvestmentPlans(plans);
     } catch (error) {
-      console.error('Error fetching investment plans:', error);
+      console.error('❌ Error fetching investment plans:', error);
     }
   };
 
@@ -150,6 +156,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!user) return;
 
     try {
+      console.log('📈 Fetching investments for user:', user.id);
       const { data, error } = await supabase
         .from('investments')
         .select(`
@@ -160,7 +167,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching investments:', error);
+        console.error('❌ Error fetching investments:', error);
         return;
       }
 
@@ -185,9 +192,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       }));
 
+      console.log('✅ Investments loaded:', userInvestments.length);
       setInvestments(userInvestments);
     } catch (error) {
-      console.error('Error fetching investments:', error);
+      console.error('❌ Error fetching investments:', error);
     }
   };
 
@@ -195,6 +203,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!user) return;
 
     try {
+      console.log('💰 Fetching deposit requests...');
       let query = supabase.from('deposit_requests').select(`
         *,
         profiles (name)
@@ -207,7 +216,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching deposit requests:', error);
+        console.error('❌ Error fetching deposit requests:', error);
         return;
       }
 
@@ -222,9 +231,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         userName: deposit.profiles?.name || 'Unknown'
       }));
 
+      console.log('✅ Deposit requests loaded:', deposits.length);
       setDepositRequests(deposits);
     } catch (error) {
-      console.error('Error fetching deposit requests:', error);
+      console.error('❌ Error fetching deposit requests:', error);
     }
   };
 
@@ -232,6 +242,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!user) return;
 
     try {
+      console.log('💸 Fetching withdrawal requests...');
       let query = supabase.from('withdrawal_requests').select(`
         *,
         profiles (name)
@@ -244,7 +255,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching withdrawal requests:', error);
+        console.error('❌ Error fetching withdrawal requests:', error);
         return;
       }
 
@@ -259,9 +270,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         userName: withdrawal.profiles?.name || 'Unknown'
       }));
 
+      console.log('✅ Withdrawal requests loaded:', withdrawals.length);
       setWithdrawalRequests(withdrawals);
     } catch (error) {
-      console.error('Error fetching withdrawal requests:', error);
+      console.error('❌ Error fetching withdrawal requests:', error);
     }
   };
 
@@ -269,6 +281,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!user) return;
 
     try {
+      console.log('📋 Fetching transactions...');
       let query = supabase.from('transactions').select('*');
 
       if (!user.isAdmin) {
@@ -278,7 +291,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching transactions:', error);
+        console.error('❌ Error fetching transactions:', error);
         return;
       }
 
@@ -292,21 +305,24 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         description: transaction.description
       }));
 
+      console.log('✅ Transactions loaded:', userTransactions.length);
       setTransactions(userTransactions);
     } catch (error) {
-      console.error('Error fetching transactions:', error);
+      console.error('❌ Error fetching transactions:', error);
     }
   };
 
   const updateInvestmentPlans = async (plans: InvestmentPlan[]) => {
-    // This would be implemented for admin functionality
     setInvestmentPlans(plans);
   };
 
   const createInvestment = async (planId: string, amount: number, userId: string): Promise<boolean> => {
     try {
+      console.log('🚀 Creating investment:', { planId, amount, userId });
+      
       const plan = investmentPlans.find(p => p.id === planId);
       if (!plan || amount < plan.minAmount || amount > plan.maxAmount) {
+        console.error('❌ Invalid plan or amount');
         return false;
       }
 
@@ -325,7 +341,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         });
 
       if (investmentError) {
-        console.error('Error creating investment:', investmentError);
+        console.error('❌ Error creating investment:', investmentError);
         return false;
       }
 
@@ -341,7 +357,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         });
 
       if (transactionError) {
-        console.error('Error creating transaction:', transactionError);
+        console.error('❌ Error creating transaction:', transactionError);
       }
 
       // Update user balance
@@ -351,20 +367,23 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .eq('id', userId);
 
       if (balanceError) {
-        console.error('Error updating balance:', balanceError);
+        console.error('❌ Error updating balance:', balanceError);
         return false;
       }
 
+      console.log('✅ Investment created successfully');
       await refreshData();
       return true;
     } catch (error) {
-      console.error('Error creating investment:', error);
+      console.error('❌ Error creating investment:', error);
       return false;
     }
   };
 
   const createDepositRequest = async (userId: string, amount: number, currency: 'BTC' | 'USDT', userName: string) => {
     try {
+      console.log('💰 Creating deposit request:', { userId, amount, currency });
+      
       const { error: depositError } = await supabase
         .from('deposit_requests')
         .insert({
@@ -375,7 +394,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         });
 
       if (depositError) {
-        console.error('Error creating deposit request:', depositError);
+        console.error('❌ Error creating deposit request:', depositError);
         return;
       }
 
@@ -391,17 +410,20 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         });
 
       if (transactionError) {
-        console.error('Error creating transaction:', transactionError);
+        console.error('❌ Error creating transaction:', transactionError);
       }
 
+      console.log('✅ Deposit request created successfully');
       await refreshData();
     } catch (error) {
-      console.error('Error creating deposit request:', error);
+      console.error('❌ Error creating deposit request:', error);
     }
   };
 
   const createWithdrawalRequest = async (userId: string, amount: number, currency: 'BTC' | 'USDT', walletAddress: string, userName: string) => {
     try {
+      console.log('💸 Creating withdrawal request:', { userId, amount, currency });
+      
       const { error: withdrawalError } = await supabase
         .from('withdrawal_requests')
         .insert({
@@ -412,7 +434,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         });
 
       if (withdrawalError) {
-        console.error('Error creating withdrawal request:', withdrawalError);
+        console.error('❌ Error creating withdrawal request:', withdrawalError);
         return;
       }
 
@@ -428,17 +450,20 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         });
 
       if (transactionError) {
-        console.error('Error creating transaction:', transactionError);
+        console.error('❌ Error creating transaction:', transactionError);
       }
 
+      console.log('✅ Withdrawal request created successfully');
       await refreshData();
     } catch (error) {
-      console.error('Error creating withdrawal request:', error);
+      console.error('❌ Error creating withdrawal request:', error);
     }
   };
 
   const updateDepositStatus = async (depositId: string, status: 'pending' | 'confirmed' | 'rejected', userId?: string) => {
     try {
+      console.log('🔄 Updating deposit status:', { depositId, status });
+      
       // Update deposit status
       const { error: updateError } = await supabase
         .from('deposit_requests')
@@ -446,7 +471,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .eq('id', depositId);
 
       if (updateError) {
-        console.error('Error updating deposit:', updateError);
+        console.error('❌ Error updating deposit:', updateError);
         return;
       }
 
@@ -465,7 +490,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             .eq('id', userId);
 
           if (balanceError) {
-            console.error('Error updating balance:', balanceError);
+            console.error('❌ Error updating balance:', balanceError);
           }
 
           // Update transaction status
@@ -477,19 +502,22 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             .eq('status', 'pending');
 
           if (transactionError) {
-            console.error('Error updating transaction:', transactionError);
+            console.error('❌ Error updating transaction:', transactionError);
           }
         }
       }
 
+      console.log('✅ Deposit status updated successfully');
       await refreshData();
     } catch (error) {
-      console.error('Error updating deposit status:', error);
+      console.error('❌ Error updating deposit status:', error);
     }
   };
 
   const updateWithdrawalStatus = async (withdrawalId: string, status: 'pending' | 'approved' | 'completed' | 'rejected', userId?: string) => {
     try {
+      console.log('🔄 Updating withdrawal status:', { withdrawalId, status });
+      
       // Update withdrawal status
       const { error: updateError } = await supabase
         .from('withdrawal_requests')
@@ -497,7 +525,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .eq('id', withdrawalId);
 
       if (updateError) {
-        console.error('Error updating withdrawal:', updateError);
+        console.error('❌ Error updating withdrawal:', updateError);
         return;
       }
 
@@ -516,7 +544,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             .eq('id', userId);
 
           if (balanceError) {
-            console.error('Error updating balance:', balanceError);
+            console.error('❌ Error updating balance:', balanceError);
           }
         }
       }
@@ -535,13 +563,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           .eq('status', 'pending');
 
         if (transactionError) {
-          console.error('Error updating transaction:', transactionError);
+          console.error('❌ Error updating transaction:', transactionError);
         }
       }
 
+      console.log('✅ Withdrawal status updated successfully');
       await refreshData();
     } catch (error) {
-      console.error('Error updating withdrawal status:', error);
+      console.error('❌ Error updating withdrawal status:', error);
     }
   };
 
@@ -555,16 +584,18 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const getAllUsers = async () => {
     try {
+      console.log('👥 Fetching all users...');
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching users:', error);
+        console.error('❌ Error fetching users:', error);
         return [];
       }
 
+      console.log('✅ Users loaded:', data.length);
       return data.map(profile => ({
         id: profile.id,
         name: profile.name,
@@ -576,23 +607,26 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         createdAt: new Date(profile.created_at)
       }));
     } catch (error) {
-      console.error('Error fetching users:', error);
+      console.error('❌ Error fetching users:', error);
       return [];
     }
   };
 
   const updateUserBalance = async (userId: string, amount: number) => {
     try {
+      console.log('💰 Updating user balance:', { userId, amount });
       const { error } = await supabase
         .from('profiles')
         .update({ balance: supabase.sql`balance + ${amount}` })
         .eq('id', userId);
 
       if (error) {
-        console.error('Error updating user balance:', error);
+        console.error('❌ Error updating user balance:', error);
+      } else {
+        console.log('✅ User balance updated successfully');
       }
     } catch (error) {
-      console.error('Error updating user balance:', error);
+      console.error('❌ Error updating user balance:', error);
     }
   };
 
