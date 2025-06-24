@@ -20,11 +20,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const isActive = (path: string) => location.pathname === path;
 
-  // Handle homepage navigation for logged-in users
+  // Fixed homepage navigation for logged-in users
   const handleHomeClick = (e: React.MouseEvent) => {
+    e.preventDefault();
     if (user) {
-      e.preventDefault();
       navigate('/dashboard');
+    } else {
+      navigate('/');
     }
   };
 
@@ -50,23 +52,22 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
-            <Link 
-              to={user ? "/dashboard" : "/"} 
-              className="flex items-center space-x-2"
+            <button 
+              onClick={handleHomeClick}
+              className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
             >
               <div className="w-8 h-8 bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-lg flex items-center justify-center">
                 <TrendingUp className="w-5 h-5 text-slate-900" />
               </div>
               <span className="text-xl font-bold text-white">Profitra</span>
-            </Link>
+            </button>
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-8">
               {!user && publicNavItems.map(item => (
-                <Link
+                <button
                   key={item.path}
-                  to={item.path}
-                  onClick={item.onClick}
+                  onClick={item.onClick || (() => navigate(item.path))}
                   className={`text-sm font-medium transition-colors ${
                     isActive(item.path)
                       ? 'text-yellow-400'
@@ -74,7 +75,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   }`}
                 >
                   {item.label}
-                </Link>
+                </button>
               ))}
 
               {user && !user.isAdmin && userNavItems.map(item => (
@@ -153,21 +154,21 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <div className="md:hidden border-t border-slate-700/50 py-4">
               <div className="space-y-2">
                 {!user && publicNavItems.map(item => (
-                  <Link
+                  <button
                     key={item.path}
-                    to={item.path}
                     onClick={(e) => {
                       if (item.onClick) item.onClick(e);
+                      else navigate(item.path);
                       setIsMobileMenuOpen(false);
                     }}
-                    className={`block px-4 py-2 text-sm font-medium transition-colors ${
+                    className={`block w-full text-left px-4 py-2 text-sm font-medium transition-colors ${
                       isActive(item.path)
                         ? 'text-yellow-400'
                         : 'text-slate-300 hover:text-white'
                     }`}
                   >
                     {item.label}
-                  </Link>
+                  </button>
                 ))}
 
                 {user && !user.isAdmin && userNavItems.map(item => (
