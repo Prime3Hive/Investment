@@ -1,7 +1,7 @@
 import React, { ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { TrendingUp, User, LogOut, Settings, Menu, X, ArrowDownLeft } from 'lucide-react';
+import { TrendingUp, User, LogOut, Menu, X } from 'lucide-react';
 
 interface LayoutProps {
   children: ReactNode;
