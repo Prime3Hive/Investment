@@ -1,7 +1,7 @@
 import React, { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { TrendingUp, LogOut, User, Settings } from 'lucide-react';
+import { TrendingUp, LogOut, User } from 'lucide-react';
 
 interface LayoutProps {
   children: ReactNode;
@@ -62,6 +62,30 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 </>
               ) : (
                 <>
+                  <Link
+                    to="/dashboard"
+                    className={`text-sm font-medium transition-colors ${
+                      isActive('/dashboard') ? 'text-yellow-400' : 'text-slate-300 hover:text-white'
+                    }`}
+                  >
+                    Dashboard
+                  </Link>
+                  <Link
+                    to="/invest"
+                    className={`text-sm font-medium transition-colors ${
+                      isActive('/invest') ? 'text-yellow-400' : 'text-slate-300 hover:text-white'
+                    }`}
+                  >
+                    Invest
+                  </Link>
+                  <Link
+                    to="/deposit"
+                    className={`text-sm font-medium transition-colors ${
+                      isActive('/deposit') ? 'text-yellow-400' : 'text-slate-300 hover:text-white'
+                    }`}
+                  >
+                    Deposit
+                  </Link>
                   {user.isAdmin && (
                     <Link
                       to="/admin"

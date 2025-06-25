@@ -46,25 +46,29 @@ export interface Database {
           name: string;
           min_amount: number;
           max_amount: number;
-          roi_percent: number;
+          roi: number;
           duration_hours: number;
+          description: string;
           is_active: boolean;
           created_at: string;
+          updated_at: string;
         };
         Insert: {
           name: string;
           min_amount: number;
           max_amount: number;
-          roi_percent: number;
+          roi: number;
           duration_hours: number;
+          description?: string;
           is_active?: boolean;
         };
         Update: {
           name?: string;
           min_amount?: number;
           max_amount?: number;
-          roi_percent?: number;
+          roi?: number;
           duration_hours?: number;
+          description?: string;
           is_active?: boolean;
         };
       };
@@ -74,38 +78,41 @@ export interface Database {
           user_id: string;
           plan_id: string;
           amount: number;
-          roi_percent: number;
-          created_at: string;
-          ends_at: string;
-          is_reinvest: boolean;
+          start_date: string;
+          end_date: string;
+          roi: number;
           status: 'active' | 'completed' | 'cancelled';
+          created_at: string;
+          updated_at: string;
         };
         Insert: {
           user_id: string;
           plan_id: string;
           amount: number;
-          roi_percent: number;
-          ends_at: string;
-          is_reinvest?: boolean;
+          end_date: string;
+          roi: number;
           status?: 'active' | 'completed' | 'cancelled';
         };
         Update: {
           status?: 'active' | 'completed' | 'cancelled';
         };
       };
-      deposits: {
+      deposit_requests: {
         Row: {
           id: string;
           user_id: string;
           amount: number;
           currency: 'BTC' | 'USDT';
+          wallet_address: string;
           status: 'pending' | 'confirmed' | 'rejected';
           created_at: string;
+          updated_at: string;
         };
         Insert: {
           user_id: string;
           amount: number;
           currency: 'BTC' | 'USDT';
+          wallet_address: string;
           status?: 'pending' | 'confirmed' | 'rejected';
         };
         Update: {
@@ -116,15 +123,17 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
-          type: 'deposit' | 'invest' | 'reinvest' | 'profit';
+          type: 'deposit' | 'investment' | 'profit' | 'reinvestment';
           amount: number;
+          status: 'pending' | 'completed' | 'failed';
           description: string;
           created_at: string;
         };
         Insert: {
           user_id: string;
-          type: 'deposit' | 'invest' | 'reinvest' | 'profit';
+          type: 'deposit' | 'investment' | 'profit' | 'reinvestment';
           amount: number;
+          status: 'pending' | 'completed' | 'failed';
           description: string;
         };
       };

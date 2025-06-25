@@ -8,8 +8,9 @@ interface InvestmentPlan {
   name: string;
   minAmount: number;
   maxAmount: number;
-  roiPercent: number;
+  roi: number;
   durationHours: number;
+  description: string;
   isActive: boolean;
 }
 
@@ -18,19 +19,19 @@ interface Investment {
   userId: string;
   planId: string;
   amount: number;
-  roiPercent: number;
-  createdAt: string;
-  endsAt: string;
-  isReinvest: boolean;
+  roi: number;
+  startDate: string;
+  endDate: string;
   status: 'active' | 'completed' | 'cancelled';
   plan?: InvestmentPlan;
 }
 
-interface Deposit {
+interface DepositRequest {
   id: string;
   userId: string;
   amount: number;
   currency: 'BTC' | 'USDT';
+  walletAddress: string;
   status: 'pending' | 'confirmed' | 'rejected';
   createdAt: string;
 }
@@ -38,8 +39,9 @@ interface Deposit {
 interface Transaction {
   id: string;
   userId: string;
-  type: 'deposit' | 'invest' | 'reinvest' | 'profit';
+  type: 'deposit' | 'investment' | 'profit' | 'reinvestment';
   amount: number;
+  status: 'pending' | 'completed' | 'failed';
   description: string;
   createdAt: string;
 }
@@ -47,10 +49,10 @@ interface Transaction {
 interface InvestmentContextType {
   plans: InvestmentPlan[];
   investments: Investment[];
-  deposits: Deposit[];
+  deposits: DepositRequest[];
   transactions: Transaction[];
-  createInvestment: (planId: string, amount: number, isReinvest?: boolean) => Promise<boolean>;
-  createDeposit: (amount: number, currency: 'BTC' | 'USDT') => Promise<boolean>;
+  createInvestment: (planId: string, amount: number) => Promise<boolean>;
+  createDepositRequest: (amount: number, currency: 'BTC' | 'USDT') => Promise<boolean>;
   fetchUserData: () => Promise<void>;
   isLoading: boolean;
 }
@@ -65,11 +67,17 @@ export const useInvestment = () => {
   return context;
 };
 
+// Static wallet addresses for deposits
+const WALLET_ADDRESSES = {
+  BTC: '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa',
+  USDT: '0x742D35Cc6634C0532925a3b8D49D6b5A0e65e8C6'
+};
+
 export const InvestmentProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const [plans, setPlans] = useState<InvestmentPlan[]>([]);
   const [investments, setInvestments] = useState<Investment[]>([]);
-  const [deposits, setDeposits] = useState<Deposit[]>([]);
+  const [deposits, setDeposits] = useState<DepositRequest[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -95,8 +103,9 @@ export const InvestmentProvider: React.FC<{ children: ReactNode }> = ({ children
         name: plan.name,
         minAmount: plan.min_amount,
         maxAmount: plan.max_amount,
-        roiPercent: plan.roi_percent,
+        roi: plan.roi,
         durationHours: plan.duration_hours,
+        description: plan.description || '',
         isActive: plan.is_active,
       })));
     } catch (error) {
@@ -126,25 +135,25 @@ export const InvestmentProvider: React.FC<{ children: ReactNode }> = ({ children
         userId: inv.user_id,
         planId: inv.plan_id,
         amount: inv.amount,
-        roiPercent: inv.roi_percent,
-        createdAt: inv.created_at,
-        endsAt: inv.ends_at,
-        isReinvest: inv.is_reinvest,
+        roi: inv.roi,
+        startDate: inv.start_date,
+        endDate: inv.end_date,
         status: inv.status,
         plan: inv.investment_plans ? {
           id: inv.investment_plans.id,
           name: inv.investment_plans.name,
           minAmount: inv.investment_plans.min_amount,
           maxAmount: inv.investment_plans.max_amount,
-          roiPercent: inv.investment_plans.roi_percent,
+          roi: inv.investment_plans.roi,
           durationHours: inv.investment_plans.duration_hours,
+          description: inv.investment_plans.description || '',
           isActive: inv.investment_plans.is_active,
         } : undefined,
       })));
 
-      // Fetch deposits
+      // Fetch deposit requests
       const { data: depositData, error: depositError } = await supabase
-        .from('deposits')
+        .from('deposit_requests')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
@@ -156,6 +165,7 @@ export const InvestmentProvider: React.FC<{ children: ReactNode }> = ({ children
         userId: dep.user_id,
         amount: dep.amount,
         currency: dep.currency,
+        walletAddress: dep.wallet_address,
         status: dep.status,
         createdAt: dep.created_at,
       })));
@@ -175,6 +185,7 @@ export const InvestmentProvider: React.FC<{ children: ReactNode }> = ({ children
         userId: tx.user_id,
         type: tx.type,
         amount: tx.amount,
+        status: tx.status,
         description: tx.description,
         createdAt: tx.created_at,
       })));
@@ -186,7 +197,7 @@ export const InvestmentProvider: React.FC<{ children: ReactNode }> = ({ children
     }
   };
 
-  const createInvestment = async (planId: string, amount: number, isReinvest = false): Promise<boolean> => {
+  const createInvestment = async (planId: string, amount: number): Promise<boolean> => {
     if (!user) return false;
 
     try {
@@ -206,8 +217,8 @@ export const InvestmentProvider: React.FC<{ children: ReactNode }> = ({ children
         return false;
       }
 
-      const endsAt = new Date();
-      endsAt.setHours(endsAt.getHours() + plan.durationHours);
+      const endDate = new Date();
+      endDate.setHours(endDate.getHours() + plan.durationHours);
 
       // Create investment
       const { error: investmentError } = await supabase
@@ -216,9 +227,8 @@ export const InvestmentProvider: React.FC<{ children: ReactNode }> = ({ children
           user_id: user.id,
           plan_id: planId,
           amount,
-          roi_percent: plan.roiPercent,
-          ends_at: endsAt.toISOString(),
-          is_reinvest: isReinvest,
+          end_date: endDate.toISOString(),
+          roi: plan.roi,
           status: 'active',
         });
 
@@ -237,8 +247,9 @@ export const InvestmentProvider: React.FC<{ children: ReactNode }> = ({ children
         .from('transactions')
         .insert({
           user_id: user.id,
-          type: isReinvest ? 'reinvest' : 'invest',
+          type: 'investment',
           amount,
+          status: 'completed',
           description: `Investment in ${plan.name} plan`,
         });
 
@@ -252,20 +263,32 @@ export const InvestmentProvider: React.FC<{ children: ReactNode }> = ({ children
     }
   };
 
-  const createDeposit = async (amount: number, currency: 'BTC' | 'USDT'): Promise<boolean> => {
+  const createDepositRequest = async (amount: number, currency: 'BTC' | 'USDT'): Promise<boolean> => {
     if (!user) return false;
 
     try {
       const { error } = await supabase
-        .from('deposits')
+        .from('deposit_requests')
         .insert({
           user_id: user.id,
           amount,
           currency,
+          wallet_address: WALLET_ADDRESSES[currency],
           status: 'pending',
         });
 
       if (error) throw error;
+
+      // Create transaction record
+      await supabase
+        .from('transactions')
+        .insert({
+          user_id: user.id,
+          type: 'deposit',
+          amount,
+          status: 'pending',
+          description: `${currency} deposit request`,
+        });
 
       toast.success('Deposit request submitted! Please wait for admin confirmation.');
       await fetchUserData();
@@ -283,7 +306,7 @@ export const InvestmentProvider: React.FC<{ children: ReactNode }> = ({ children
     deposits,
     transactions,
     createInvestment,
-    createDeposit,
+    createDepositRequest,
     fetchUserData,
     isLoading,
   };

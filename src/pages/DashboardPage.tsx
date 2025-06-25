@@ -26,11 +26,11 @@ const DashboardPage: React.FC = () => {
   const pendingDeposits = deposits.filter(dep => dep.status === 'pending');
 
   const totalInvested = investments.reduce((sum, inv) => sum + inv.amount, 0);
-  const totalProfit = completedInvestments.reduce((sum, inv) => sum + (inv.amount * inv.roiPercent / 100), 0);
+  const totalProfit = completedInvestments.reduce((sum, inv) => sum + (inv.amount * inv.roi / 100), 0);
 
-  const formatTimeLeft = (endsAt: string) => {
+  const formatTimeLeft = (endDate: string) => {
     const now = new Date();
-    const end = new Date(endsAt);
+    const end = new Date(endDate);
     const diff = end.getTime() - now.getTime();
     
     if (diff <= 0) return 'Completed';
@@ -170,20 +170,20 @@ const DashboardPage: React.FC = () => {
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="font-semibold text-white">{investment.plan?.name}</h3>
                     <span className="text-green-400 text-sm font-medium">
-                      {investment.roiPercent}% ROI
+                      {investment.roi}% ROI
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-sm text-slate-300 mb-2">
                     <span>Amount: ${investment.amount.toLocaleString()}</span>
-                    <span>Time left: {formatTimeLeft(investment.endsAt)}</span>
+                    <span>Time left: {formatTimeLeft(investment.endDate)}</span>
                   </div>
                   <div className="w-full bg-slate-600 rounded-full h-2">
                     <div 
                       className="bg-gradient-to-r from-yellow-400 to-yellow-600 h-2 rounded-full"
                       style={{ 
                         width: `${Math.max(0, Math.min(100, 
-                          ((new Date().getTime() - new Date(investment.createdAt).getTime()) / 
-                          (new Date(investment.endsAt).getTime() - new Date(investment.createdAt).getTime())) * 100
+                          ((new Date().getTime() - new Date(investment.startDate).getTime()) / 
+                          (new Date(investment.endDate).getTime() - new Date(investment.startDate).getTime())) * 100
                         ))}%` 
                       }}
                     ></div>
@@ -216,12 +216,12 @@ const DashboardPage: React.FC = () => {
                   <div className="flex items-center space-x-3">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                       transaction.type === 'deposit' ? 'bg-green-500/20' :
-                      transaction.type === 'invest' || transaction.type === 'reinvest' ? 'bg-blue-500/20' :
+                      transaction.type === 'investment' || transaction.type === 'reinvestment' ? 'bg-blue-500/20' :
                       'bg-yellow-500/20'
                     }`}>
                       {transaction.type === 'deposit' ? (
                         <ArrowDownRight className="w-5 h-5 text-green-400" />
-                      ) : transaction.type === 'invest' || transaction.type === 'reinvest' ? (
+                      ) : transaction.type === 'investment' || transaction.type === 'reinvestment' ? (
                         <TrendingUp className="w-5 h-5 text-blue-400" />
                       ) : (
                         <DollarSign className="w-5 h-5 text-yellow-400" />

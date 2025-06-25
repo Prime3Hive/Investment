@@ -12,6 +12,8 @@ import HomePage from './pages/HomePage';
 import SignInPage from './pages/SignInPage';
 import SignUpPage from './pages/SignUpPage';
 import DashboardPage from './pages/DashboardPage';
+import InvestPage from './pages/InvestPage';
+import DepositPage from './pages/DepositPage';
 
 function App() {
   return (
@@ -29,6 +31,16 @@ function App() {
               <Route path="/dashboard" element={
                 <ProtectedRoute>
                   <DashboardPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/invest" element={
+                <ProtectedRoute>
+                  <InvestPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/deposit" element={
+                <ProtectedRoute>
+                  <DepositPage />
                 </ProtectedRoute>
               } />
               
