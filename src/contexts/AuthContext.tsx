@@ -82,12 +82,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .single();
 
       if (error) {
-        if (error.code === 'PGRST116') {
-          // Profile doesn't exist, create it
-          await createUserProfile(authUser);
-          return;
-        }
-        throw error;
+        console.error('Error fetching profile:', error);
+        setError('Failed to load user profile');
+        setIsLoading(false);
+        return;
       }
 
       setUser({
@@ -102,40 +100,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch (error) {
       console.error('Error fetching profile:', error);
       setError('Failed to load user profile');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const createUserProfile = async (authUser: SupabaseUser) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .insert({
-          id: authUser.id,
-          name: authUser.user_metadata?.name || 'User',
-          btc_wallet: authUser.user_metadata?.btc_wallet || '',
-          usdt_wallet: authUser.user_metadata?.usdt_wallet || '',
-          balance: 0,
-          is_admin: false,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setUser({
-        id: data.id,
-        name: data.name,
-        email: authUser.email || '',
-        balance: data.balance,
-        isAdmin: data.is_admin,
-        btcWallet: data.btc_wallet,
-        usdtWallet: data.usdt_wallet,
-      });
-    } catch (error) {
-      console.error('Error creating profile:', error);
-      setError('Failed to create user profile');
     } finally {
       setIsLoading(false);
     }
@@ -167,27 +131,53 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const register = async (userData: RegisterData): Promise<boolean> => {
     try {
       setError(null);
-      const { error } = await supabase.auth.signUp({
+      
+      // First, sign up the user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: userData.email,
         password: userData.password,
-        options: {
-          data: {
-            name: userData.name,
-            btc_wallet: userData.btcWallet,
-            usdt_wallet: userData.usdtWallet,
-          },
-        },
       });
 
-      if (error) {
-        setError(error.message);
-        toast.error(error.message);
+      if (authError) {
+        setError(authError.message);
+        toast.error(authError.message);
+        return false;
+      }
+
+      if (!authData.user) {
+        setError('Failed to create user account');
+        toast.error('Failed to create user account');
+        return false;
+      }
+
+      // Wait a moment for the user to be fully created in the auth system
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Create the user profile directly
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: authData.user.id,
+          name: userData.name,
+          btc_wallet: userData.btcWallet,
+          usdt_wallet: userData.usdtWallet,
+          balance: 0,
+          is_admin: false,
+        });
+
+      if (profileError) {
+        console.error('Profile creation error:', profileError);
+        // If profile creation fails, we should clean up the auth user
+        await supabase.auth.admin.deleteUser(authData.user.id);
+        setError('Failed to create user profile');
+        toast.error('Failed to create user profile');
         return false;
       }
 
       toast.success('Registration successful! Please check your email to verify your account.');
       return true;
     } catch (error: any) {
+      console.error('Registration error:', error);
       setError(error.message);
       toast.error(error.message);
       return false;
