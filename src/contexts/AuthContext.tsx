@@ -75,28 +75,49 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const fetchUserProfile = async (authUser: SupabaseUser) => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', authUser.id)
-        .single();
+      // Add retry logic for profile fetching since it might take a moment for the trigger to create the profile
+      let retries = 3;
+      let profile = null;
+      
+      while (retries > 0 && !profile) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authUser.id)
+          .single();
 
-      if (error) {
-        console.error('Error fetching profile:', error);
-        setError('Failed to load user profile');
-        setIsLoading(false);
-        return;
+        if (error) {
+          if (error.code === 'PGRST116') {
+            // Profile not found, wait and retry
+            retries--;
+            if (retries > 0) {
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              continue;
+            } else {
+              console.error('Profile not found after retries:', error);
+              setError('Failed to load user profile');
+              setIsLoading(false);
+              return;
+            }
+          } else {
+            throw error;
+          }
+        } else {
+          profile = data;
+        }
       }
 
-      setUser({
-        id: data.id,
-        name: data.name,
-        email: authUser.email || '',
-        balance: data.balance,
-        isAdmin: data.is_admin,
-        btcWallet: data.btc_wallet,
-        usdtWallet: data.usdt_wallet,
-      });
+      if (profile) {
+        setUser({
+          id: profile.id,
+          name: profile.name,
+          email: authUser.email || '',
+          balance: profile.balance,
+          isAdmin: profile.is_admin,
+          btcWallet: profile.btc_wallet,
+          usdtWallet: profile.usdt_wallet,
+        });
+      }
     } catch (error) {
       console.error('Error fetching profile:', error);
       setError('Failed to load user profile');
@@ -132,10 +153,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       setError(null);
       
-      // First, sign up the user
+      // Sign up with user metadata - this will trigger the database function to create the profile
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: userData.email,
         password: userData.password,
+        options: {
+          data: {
+            name: userData.name,
+            btc_wallet: userData.btcWallet,
+            usdt_wallet: userData.usdtWallet,
+          }
+        }
       });
 
       if (authError) {
@@ -147,30 +175,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (!authData.user) {
         setError('Failed to create user account');
         toast.error('Failed to create user account');
-        return false;
-      }
-
-      // Wait a moment for the user to be fully created in the auth system
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Create the user profile directly
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: authData.user.id,
-          name: userData.name,
-          btc_wallet: userData.btcWallet,
-          usdt_wallet: userData.usdtWallet,
-          balance: 0,
-          is_admin: false,
-        });
-
-      if (profileError) {
-        console.error('Profile creation error:', profileError);
-        // If profile creation fails, we should clean up the auth user
-        await supabase.auth.admin.deleteUser(authData.user.id);
-        setError('Failed to create user profile');
-        toast.error('Failed to create user profile');
         return false;
       }
 
