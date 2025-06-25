@@ -1,235 +1,99 @@
-import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useData } from '../contexts/DataContext';
-import { TrendingUp, Shield, Clock, Users, ArrowRight, Star } from 'lucide-react';
-import Skeleton from '../components/SkeletonLoader';
+import { TrendingUp, Shield, Clock, Users, ArrowRight, Star, CheckCircle } from 'lucide-react';
 
 const HomePage: React.FC = () => {
-  const { user, isLoading: authLoading } = useAuth();
-  const { investmentPlans, isLoading: dataLoading } = useData();
-  const navigate = useNavigate();
-  const [pageLoading, setPageLoading] = useState(true);
+  const { user } = useAuth();
 
-  // Control loading state with a small delay to prevent flickering
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setPageLoading(authLoading || dataLoading);
-    }, 500);
+  // If user is logged in, redirect to dashboard
+  if (user) {
+    window.location.href = '/dashboard';
+    return null;
+  }
 
-    return () => clearTimeout(timer);
-  }, [authLoading, dataLoading]);
-
-  // Redirect logged-in users to dashboard
-  useEffect(() => {
-    if (user && !authLoading) {
-      console.log('🔄 User is logged in, redirecting to dashboard');
-      navigate('/dashboard', { replace: true });
+  const plans = [
+    {
+      name: 'Starter',
+      roi: 5,
+      duration: 24,
+      minAmount: 50,
+      maxAmount: 500,
+      description: 'Perfect for beginners'
+    },
+    {
+      name: 'Professional',
+      roi: 10,
+      duration: 48,
+      minAmount: 500,
+      maxAmount: 2000,
+      description: 'For experienced investors'
+    },
+    {
+      name: 'Premium',
+      roi: 15,
+      duration: 72,
+      minAmount: 2000,
+      maxAmount: 10000,
+      description: 'Maximum returns',
+      popular: true
+    },
+    {
+      name: 'VIP',
+      roi: 20,
+      duration: 168,
+      minAmount: 10000,
+      maxAmount: 50000,
+      description: 'Exclusive high-yield plan'
     }
-  }, [user, authLoading, navigate]);
-
-  // Don't render homepage content if user is logged in
-  if (user && !authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
-          <p className="text-slate-400">Redirecting to dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Home Page Skeleton UI
-  const HomePageSkeleton = () => (
-    <div className="min-h-screen">
-      {/* Hero Section Skeleton */}
-      <section className="relative py-20 px-4 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20"></div>
-        <div className="relative max-w-7xl mx-auto text-center">
-          <Skeleton height="4rem" width="70%" className="mx-auto mb-6" rounded />
-          <Skeleton height="1.5rem" width="80%" className="mx-auto mb-2" rounded />
-          <Skeleton height="1.5rem" width="60%" className="mx-auto mb-8" rounded />
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Skeleton height="3.5rem" width="10rem" className="mx-auto" rounded />
-            <Skeleton height="3.5rem" width="10rem" className="mx-auto" rounded />
-          </div>
-        </div>
-      </section>
-
-      {/* Stats Section Skeleton */}
-      <section className="py-16 px-4">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {Array(4).fill(0).map((_, i) => (
-              <div key={i} className="bg-slate-800/50 p-6 rounded-lg border border-slate-700/50">
-                <Skeleton height="2rem" width="60%" className="mb-2" rounded />
-                <Skeleton height="1.5rem" width="40%" className="mb-4" rounded />
-                <Skeleton height="1rem" width="100%" className="mb-2" rounded />
-                <Skeleton height="1rem" width="80%" rounded />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Investment Plans Skeleton */}
-      <section className="py-16 px-4 bg-slate-900/50">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-12">
-            <Skeleton height="2.5rem" width="50%" className="mx-auto mb-4" rounded />
-            <Skeleton height="1.5rem" width="70%" className="mx-auto" rounded />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {Array(3).fill(0).map((_, i) => (
-              <div key={i} className="bg-slate-800/50 p-6 rounded-xl border border-slate-700/50">
-                <Skeleton height="2rem" width="50%" className="mb-4" rounded />
-                <Skeleton height="1.5rem" width="30%" className="mb-2" rounded />
-                <Skeleton height="1rem" width="100%" className="mb-4" rounded />
-                <Skeleton height="1rem" width="90%" className="mb-2" rounded />
-                <Skeleton height="1rem" width="80%" className="mb-6" rounded />
-                <Skeleton height="3rem" width="100%" rounded />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Features Skeleton */}
-      <section className="py-20 px-4 bg-slate-800/30">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <Skeleton height="2.5rem" width="40%" className="mx-auto mb-4" rounded />
-            <Skeleton height="1.5rem" width="60%" className="mx-auto" rounded />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {Array(4).fill(0).map((_, i) => (
-              <div key={i} className="text-center p-6 rounded-xl bg-slate-800/50 border border-slate-700/50">
-                <Skeleton height="4rem" width="4rem" className="mx-auto mb-4" circle />
-                <Skeleton height="1.5rem" width="60%" className="mx-auto mb-2" rounded />
-                <Skeleton height="1rem" width="90%" className="mx-auto" rounded />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials Skeleton */}
-      <section className="py-20 px-4">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <Skeleton height="2.5rem" width="50%" className="mx-auto mb-4" rounded />
-            <Skeleton height="1.5rem" width="70%" className="mx-auto" rounded />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {Array(3).fill(0).map((_, i) => (
-              <div key={i} className="p-6 rounded-xl bg-slate-800/50 border border-slate-700/50">
-                <div className="flex items-center mb-4">
-                  {Array(5).fill(0).map((_, j) => (
-                    <Skeleton key={j} height="1.25rem" width="1.25rem" className="mr-1" />
-                  ))}
-                </div>
-                <Skeleton height="1rem" width="100%" className="mb-2" rounded />
-                <Skeleton height="1rem" width="90%" className="mb-2" rounded />
-                <Skeleton height="1rem" width="95%" className="mb-4" rounded />
-                <Skeleton height="1.25rem" width="40%" className="mb-1" rounded />
-                <Skeleton height="1rem" width="30%" rounded />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section Skeleton */}
-      <section className="py-20 px-4 bg-gradient-to-r from-yellow-400/10 to-yellow-600/10">
-        <div className="max-w-4xl mx-auto text-center">
-          <Skeleton height="2.5rem" width="60%" className="mx-auto mb-4" rounded />
-          <Skeleton height="1.5rem" width="80%" className="mx-auto mb-8" rounded />
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Skeleton height="3.5rem" width="10rem" className="mx-auto" rounded />
-            <Skeleton height="3.5rem" width="10rem" className="mx-auto" rounded />
-          </div>
-        </div>
-      </section>
-    </div>
-  );
-
-  if (pageLoading) {
-    return <HomePageSkeleton />;
-  }
+  ];
 
   const features = [
     {
       icon: Shield,
-      title: 'Secure Investment',
-      description: 'Your investments are protected with bank-level security and encryption.'
+      title: 'Secure & Safe',
+      description: 'Bank-level security for all transactions'
     },
     {
       icon: TrendingUp,
       title: 'High Returns',
-      description: 'Earn up to 20% ROI with our carefully curated investment plans.'
+      description: 'Up to 20% ROI on investments'
     },
     {
       icon: Clock,
       title: 'Quick Processing',
-      description: 'Fast deposit processing and instant investment activation.'
+      description: 'Fast deposits and withdrawals'
     },
     {
       icon: Users,
-      title: 'Expert Team',
-      description: 'Managed by experienced professionals in cryptocurrency trading.'
-    }
-  ];
-
-  const testimonials = [
-    {
-      name: 'Sarah Johnson',
-      role: 'Investor',
-      content: 'Profitra has transformed my investment portfolio. The returns are excellent and the platform is incredibly user-friendly.',
-      rating: 5
-    },
-    {
-      name: 'Michael Chen',
-      role: 'Trader',
-      content: 'I\'ve been using Profitra for 6 months now. The consistent profits and reliable service make it my go-to platform.',
-      rating: 5
-    },
-    {
-      name: 'Emma Davis',
-      role: 'Business Owner',
-      content: 'The Platinum plan has exceeded my expectations. Professional service and impressive returns.',
-      rating: 5
+      title: '24/7 Support',
+      description: 'Round-the-clock customer service'
     }
   ];
 
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="relative py-20 px-4 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20"></div>
-        <div className="relative max-w-7xl mx-auto text-center">
+      <section className="relative py-20 px-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+        <div className="max-w-6xl mx-auto text-center">
           <h1 className="text-5xl md:text-6xl font-bold text-white mb-6">
-            Invest in Your
-            <span className="bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent"> Future</span>
+            Grow Your Wealth with
+            <span className="block text-yellow-400">Cryptocurrency</span>
           </h1>
-          <p className="text-xl text-slate-300 mb-8 max-w-3xl mx-auto">
-            Join thousands of investors earning consistent returns with our premium cryptocurrency investment platform. 
-            Start building wealth today with plans tailored to your financial goals.
+          <p className="text-xl text-slate-300 mb-8 max-w-2xl mx-auto">
+            Join thousands of investors earning consistent returns with our secure and transparent investment platform.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               to="/register"
-              className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-yellow-400 to-yellow-600 text-slate-900 font-semibold rounded-lg hover:from-yellow-500 hover:to-yellow-700 transition-all duration-300 transform hover:scale-105"
+              className="px-8 py-4 bg-yellow-400 text-slate-900 font-semibold rounded-lg hover:bg-yellow-500 transition-colors inline-flex items-center justify-center"
             >
               Start Investing
               <ArrowRight className="ml-2 w-5 h-5" />
             </Link>
             <Link
               to="/login"
-              className="inline-flex items-center px-8 py-4 bg-slate-800 text-white font-semibold rounded-lg hover:bg-slate-700 transition-all duration-300 border border-slate-600"
+              className="px-8 py-4 bg-transparent border-2 border-slate-600 text-white font-semibold rounded-lg hover:border-slate-500 transition-colors"
             >
               Login
             </Link>
@@ -238,23 +102,23 @@ const HomePage: React.FC = () => {
       </section>
 
       {/* Stats Section */}
-      <section className="py-16 px-4 bg-slate-800/50">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div className="text-center">
-              <div className="text-4xl font-bold text-yellow-400 mb-2">$2.5M+</div>
-              <div className="text-slate-300">Total Investments</div>
+      <section className="py-16 px-4 bg-slate-800">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+            <div>
+              <div className="text-3xl font-bold text-yellow-400 mb-2">$2.5M+</div>
+              <div className="text-slate-300">Total Invested</div>
             </div>
-            <div className="text-center">
-              <div className="text-4xl font-bold text-yellow-400 mb-2">5,000+</div>
-              <div className="text-slate-300">Active Investors</div>
+            <div>
+              <div className="text-3xl font-bold text-yellow-400 mb-2">5,000+</div>
+              <div className="text-slate-300">Active Users</div>
             </div>
-            <div className="text-center">
-              <div className="text-4xl font-bold text-yellow-400 mb-2">99.9%</div>
+            <div>
+              <div className="text-3xl font-bold text-yellow-400 mb-2">99.9%</div>
               <div className="text-slate-300">Uptime</div>
             </div>
-            <div className="text-center">
-              <div className="text-4xl font-bold text-yellow-400 mb-2">24/7</div>
+            <div>
+              <div className="text-3xl font-bold text-yellow-400 mb-2">24/7</div>
               <div className="text-slate-300">Support</div>
             </div>
           </div>
@@ -263,50 +127,51 @@ const HomePage: React.FC = () => {
 
       {/* Investment Plans */}
       <section className="py-20 px-4">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-white mb-4">Investment Plans</h2>
-            <p className="text-xl text-slate-300 max-w-2xl mx-auto">
-              Choose from our carefully designed investment plans to maximize your returns
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-white mb-4">Investment Plans</h2>
+            <p className="text-slate-300 max-w-2xl mx-auto">
+              Choose the plan that fits your investment goals and risk tolerance
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {investmentPlans.map((plan, index) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {plans.map((plan, index) => (
               <div
-                key={plan.id}
-                className={`relative p-8 rounded-2xl border-2 transition-all duration-300 hover:transform hover:scale-105 ${
-                  index === 3
-                    ? 'bg-gradient-to-br from-yellow-400/10 to-yellow-600/10 border-yellow-400/50'
-                    : 'bg-slate-800/50 border-slate-700/50 hover:border-slate-600'
+                key={index}
+                className={`relative p-6 rounded-xl border-2 transition-all hover:scale-105 ${
+                  plan.popular
+                    ? 'border-yellow-400 bg-yellow-400/5'
+                    : 'border-slate-700 bg-slate-800'
                 }`}
               >
-                {index === 3 && (
-                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                    <span className="bg-gradient-to-r from-yellow-400 to-yellow-600 text-slate-900 px-4 py-1 rounded-full text-sm font-semibold">
-                      Most Popular
+                {plan.popular && (
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                    <span className="bg-yellow-400 text-slate-900 px-3 py-1 rounded-full text-sm font-semibold flex items-center">
+                      <Star className="w-3 h-3 mr-1" />
+                      Popular
                     </span>
                   </div>
                 )}
                 
                 <div className="text-center">
-                  <h3 className="text-2xl font-bold text-white mb-2">{plan.name}</h3>
-                  <div className="text-3xl font-bold text-yellow-400 mb-2">{plan.roi}%</div>
-                  <div className="text-slate-300 mb-4">in {plan.duration} hours</div>
-                  <div className="text-slate-400 mb-6">
+                  <h3 className="text-xl font-bold text-white mb-2">{plan.name}</h3>
+                  <div className="text-3xl font-bold text-yellow-400 mb-1">{plan.roi}%</div>
+                  <div className="text-slate-400 text-sm mb-4">in {plan.duration} hours</div>
+                  <div className="text-slate-300 mb-4">
                     ${plan.minAmount.toLocaleString()} - ${plan.maxAmount.toLocaleString()}
                   </div>
-                  <p className="text-slate-300 text-sm mb-8">{plan.description}</p>
+                  <p className="text-slate-400 text-sm mb-6">{plan.description}</p>
                   
                   <Link
                     to="/register"
-                    className={`w-full py-3 px-6 rounded-lg font-semibold transition-all duration-300 block text-center ${
-                      index === 3
-                        ? 'bg-gradient-to-r from-yellow-400 to-yellow-600 text-slate-900 hover:from-yellow-500 hover:to-yellow-700'
+                    className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors block text-center ${
+                      plan.popular
+                        ? 'bg-yellow-400 text-slate-900 hover:bg-yellow-500'
                         : 'bg-slate-700 text-white hover:bg-slate-600'
                     }`}
                   >
-                    Get Started
+                    Choose Plan
                   </Link>
                 </div>
               </div>
@@ -316,52 +181,23 @@ const HomePage: React.FC = () => {
       </section>
 
       {/* Features */}
-      <section className="py-20 px-4 bg-slate-800/30">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-white mb-4">Why Choose Profitra?</h2>
-            <p className="text-xl text-slate-300 max-w-2xl mx-auto">
-              We provide the tools and expertise you need to succeed in cryptocurrency investment
+      <section className="py-20 px-4 bg-slate-800">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-white mb-4">Why Choose Profitra?</h2>
+            <p className="text-slate-300 max-w-2xl mx-auto">
+              We provide the security, returns, and support you need for successful investing
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {features.map((feature, index) => (
-              <div key={index} className="text-center p-6 rounded-xl bg-slate-800/50 border border-slate-700/50">
-                <div className="w-16 h-16 bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div key={index} className="text-center p-6">
+                <div className="w-16 h-16 bg-yellow-400 rounded-full flex items-center justify-center mx-auto mb-4">
                   <feature.icon className="w-8 h-8 text-slate-900" />
                 </div>
-                <h3 className="text-xl font-semibold text-white mb-2">{feature.title}</h3>
-                <p className="text-slate-300">{feature.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials */}
-      <section className="py-20 px-4">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-white mb-4">What Our Investors Say</h2>
-            <p className="text-xl text-slate-300 max-w-2xl mx-auto">
-              Join thousands of satisfied investors who trust Profitra with their investments
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <div key={index} className="p-6 rounded-xl bg-slate-800/50 border border-slate-700/50">
-                <div className="flex items-center mb-4">
-                  {[...Array(testimonial.rating)].map((_, i) => (
-                    <Star key={i} className="w-5 h-5 text-yellow-400 fill-current" />
-                  ))}
-                </div>
-                <p className="text-slate-300 mb-4">"{testimonial.content}"</p>
-                <div>
-                  <div className="font-semibold text-white">{testimonial.name}</div>
-                  <div className="text-slate-400 text-sm">{testimonial.role}</div>
-                </div>
+                <h3 className="text-lg font-semibold text-white mb-2">{feature.title}</h3>
+                <p className="text-slate-400">{feature.description}</p>
               </div>
             ))}
           </div>
@@ -371,25 +207,17 @@ const HomePage: React.FC = () => {
       {/* CTA Section */}
       <section className="py-20 px-4 bg-gradient-to-r from-yellow-400/10 to-yellow-600/10">
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-4xl font-bold text-white mb-4">Ready to Start Investing?</h2>
-          <p className="text-xl text-slate-300 mb-8">
-            Join Profitra today and take the first step towards financial freedom
+          <h2 className="text-3xl font-bold text-white mb-4">Ready to Start Investing?</h2>
+          <p className="text-slate-300 mb-8 max-w-2xl mx-auto">
+            Join thousands of investors who trust Profitra with their financial future
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              to="/register"
-              className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-yellow-400 to-yellow-600 text-slate-900 font-semibold rounded-lg hover:from-yellow-500 hover:to-yellow-700 transition-all duration-300 transform hover:scale-105"
-            >
-              Create Account
-              <ArrowRight className="ml-2 w-5 h-5" />
-            </Link>
-            <Link
-              to="/contact"
-              className="inline-flex items-center px-8 py-4 bg-slate-800 text-white font-semibold rounded-lg hover:bg-slate-700 transition-all duration-300 border border-slate-600"
-            >
-              Contact Us
-            </Link>
-          </div>
+          <Link
+            to="/register"
+            className="inline-flex items-center px-8 py-4 bg-yellow-400 text-slate-900 font-semibold rounded-lg hover:bg-yellow-500 transition-colors"
+          >
+            Get Started Today
+            <ArrowRight className="ml-2 w-5 h-5" />
+          </Link>
         </div>
       </section>
     </div>
