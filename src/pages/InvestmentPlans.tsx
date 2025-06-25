@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { useNavigate } from 'react-router-dom';
@@ -12,16 +12,29 @@ import {
   Star,
   DollarSign
 } from 'lucide-react';
+import Skeleton from '../components/SkeletonLoader';
 
 const InvestmentPlans: React.FC = () => {
   const { user } = useAuth();
-  const { investmentPlans, createInvestment } = useData();
+  const { investmentPlans, createInvestment, isLoading } = useData();
   const navigate = useNavigate();
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [investmentAmount, setInvestmentAmount] = useState('');
   const [isInvesting, setIsInvesting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [plansLoading, setPlansLoading] = useState(true);
+  
+  // Simulate progressive loading
+  useEffect(() => {
+    // Add a small delay to show skeleton even if data loads quickly
+    // This prevents UI flickering for fast loads
+    const timer = setTimeout(() => {
+      setPlansLoading(isLoading);
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [isLoading]);
 
   const handleInvest = async () => {
     if (!selectedPlan || !investmentAmount || !user) return;
@@ -51,9 +64,9 @@ const InvestmentPlans: React.FC = () => {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1500));
       
-      const success = createInvestment(selectedPlan, amount, user.id);
+      const result = await createInvestment(selectedPlan, amount, user.id);
       
-      if (success) {
+      if (result) {
         // Update user balance
         const updatedUser = { ...user, balance: user.balance - amount };
         localStorage.setItem('user', JSON.stringify(updatedUser));
@@ -80,6 +93,65 @@ const InvestmentPlans: React.FC = () => {
     return amount + calculateProfit(amount, roi);
   };
 
+  // Investment Plans Skeleton UI
+  const InvestmentPlansSkeleton = () => (
+    <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header Skeleton */}
+        <div className="text-center mb-12">
+          <Skeleton height="2.5rem" width="40%" className="mx-auto mb-4" rounded />
+          <Skeleton height="1.2rem" width="70%" className="mx-auto mb-2" rounded />
+          <Skeleton height="1.2rem" width="50%" className="mx-auto mb-4" rounded />
+          <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg inline-block mx-auto">
+            <Skeleton height="1rem" width="12rem" rounded />
+          </div>
+        </div>
+
+        {/* Investment Plans Grid Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
+          {Array(4).fill(0).map((_, i) => (
+            <div key={i} className="bg-slate-800 rounded-lg overflow-hidden border border-slate-700">
+              <div className="p-6">
+                <Skeleton height="1.5rem" width="60%" className="mb-2" rounded />
+                <Skeleton height="2.5rem" width="40%" className="mb-4" rounded />
+                <div className="space-y-2 mb-4">
+                  <div className="flex items-center">
+                    <Skeleton height="1rem" width="1rem" circle className="mr-2" />
+                    <Skeleton height="1rem" width="80%" rounded />
+                  </div>
+                  <div className="flex items-center">
+                    <Skeleton height="1rem" width="1rem" circle className="mr-2" />
+                    <Skeleton height="1rem" width="70%" rounded />
+                  </div>
+                  <div className="flex items-center">
+                    <Skeleton height="1rem" width="1rem" circle className="mr-2" />
+                    <Skeleton height="1rem" width="60%" rounded />
+                  </div>
+                </div>
+                <Skeleton height="2.5rem" width="100%" rounded />
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        {/* Features Section Skeleton */}
+        <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8">
+          {Array(3).fill(0).map((_, i) => (
+            <div key={i} className="text-center p-6 bg-slate-800/50 rounded-lg border border-slate-700">
+              <Skeleton height="3rem" width="3rem" circle className="mx-auto mb-4" />
+              <Skeleton height="1.2rem" width="60%" className="mx-auto mb-2" rounded />
+              <Skeleton height="0.8rem" width="80%" className="mx-auto" rounded />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+  
+  if (plansLoading) {
+    return <InvestmentPlansSkeleton />;
+  }
+  
   if (success) {
     return (
       <div className="min-h-screen flex items-center justify-center py-12 px-4">

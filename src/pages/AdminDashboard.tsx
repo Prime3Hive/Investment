@@ -12,12 +12,12 @@ import {
   Trash2,
   Plus,
   Search,
-  Filter,
   ArrowUpRight,
   ArrowDownLeft,
   AlertCircle,
   CreditCard
 } from 'lucide-react';
+import Skeleton from '../components/SkeletonLoader';
 
 const AdminDashboard: React.FC = () => {
   const { 
@@ -26,10 +26,11 @@ const AdminDashboard: React.FC = () => {
     getAllUsers, 
     updateDepositStatus,
     updateWithdrawalStatus,
-    updateUserBalance,
+    updateUserStatus,
     investmentPlans,
     updateInvestmentPlans,
-    investments
+    investments,
+    isLoading
   } = useData();
   
   const [activeTab, setActiveTab] = useState('overview');
@@ -37,6 +38,7 @@ const AdminDashboard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isEditingPlan, setIsEditingPlan] = useState(false);
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
+  const [pageLoading, setPageLoading] = useState(true);
   const [planForm, setPlanForm] = useState({
     name: '',
     minAmount: 0,
@@ -49,11 +51,24 @@ const AdminDashboard: React.FC = () => {
 
   useEffect(() => {
     const fetchUsers = async () => {
+      setPageLoading(true);
       const allUsers = await getAllUsers();
       setUsers(allUsers);
+      
+      // Add a small delay before hiding skeleton to prevent flickering
+      setTimeout(() => {
+        setPageLoading(false);
+      }, 500);
     };
     fetchUsers();
   }, [getAllUsers]);
+  
+  // Update loading state when data context loading state changes
+  useEffect(() => {
+    if (isLoading) {
+      setPageLoading(true);
+    }
+  }, [isLoading]);
 
   const handleDepositStatusChange = async (depositId: string, status: 'pending' | 'confirmed' | 'rejected', userId: string) => {
     await updateDepositStatus(depositId, status, userId);
@@ -188,19 +203,89 @@ const AdminDashboard: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'confirmed':
-      case 'completed':
-      case 'approved':
-        return 'bg-green-500/20 text-green-400';
       case 'pending':
         return 'bg-yellow-500/20 text-yellow-400';
+      case 'confirmed':
+      case 'approved':
+      case 'completed':
+        return 'bg-green-500/20 text-green-400';
       case 'rejected':
         return 'bg-red-500/20 text-red-400';
+      case 'banned':
+        return 'bg-red-500/20 text-red-400';
       default:
-        return 'bg-gray-500/20 text-gray-400';
+        return 'bg-slate-500/20 text-slate-400';
     }
   };
 
+  // Admin Dashboard Skeleton UI
+  const AdminDashboardSkeleton = () => (
+    <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header Skeleton */}
+        <div className="mb-8">
+          <Skeleton height="2rem" width="30%" className="mb-2" rounded />
+          <Skeleton height="1rem" width="50%" rounded />
+        </div>
+        
+        {/* Stats Cards Skeleton */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {Array(4).fill(0).map((_, i) => (
+            <div key={i} className="bg-slate-800 rounded-lg p-6 border border-slate-700">
+              <div className="flex items-center justify-between mb-4">
+                <Skeleton height="1.5rem" width="40%" rounded />
+                <Skeleton height="2.5rem" width="2.5rem" circle />
+              </div>
+              <Skeleton height="2rem" width="60%" className="mb-1" rounded />
+              <Skeleton height="1rem" width="40%" rounded />
+            </div>
+          ))}
+        </div>
+        
+        {/* Tabs Skeleton */}
+        <div className="bg-slate-800 rounded-lg border border-slate-700 mb-8">
+          <div className="flex overflow-x-auto p-2 space-x-2">
+            {Array(5).fill(0).map((_, i) => (
+              <Skeleton key={i} height="2.5rem" width="8rem" rounded />
+            ))}
+          </div>
+        </div>
+        
+        {/* Content Skeleton - Table */}
+        <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
+          <div className="flex justify-between items-center mb-6">
+            <Skeleton height="1.5rem" width="20%" rounded />
+            <Skeleton height="2.5rem" width="15rem" rounded />
+          </div>
+          
+          <div className="overflow-x-auto">
+            <div className="min-w-full">
+              {/* Table Header */}
+              <div className="border-b border-slate-700 pb-4 grid grid-cols-5 gap-4">
+                {Array(5).fill(0).map((_, i) => (
+                  <Skeleton key={i} height="1.2rem" width="80%" rounded />
+                ))}
+              </div>
+              
+              {/* Table Rows */}
+              {Array(5).fill(0).map((_, i) => (
+                <div key={i} className="border-b border-slate-700 py-4 grid grid-cols-5 gap-4">
+                  {Array(5).fill(0).map((_, j) => (
+                    <Skeleton key={j} height="1.2rem" width={j === 4 ? "60%" : "80%"} rounded />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (pageLoading) {
+    return <AdminDashboardSkeleton />;
+  }
+  
   return (
     <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
@@ -346,6 +431,9 @@ const AdminDashboard: React.FC = () => {
                         Joined
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
@@ -367,17 +455,45 @@ const AdminDashboard: React.FC = () => {
                             {new Date(user.createdAt).toLocaleDateString()}
                           </div>
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${user.status === 'active' ? 'bg-green-500/20 text-green-400' : user.status === 'deactivated' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'}`}>
+                            {user.status || 'active'}
+                          </span>
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <div className="flex space-x-2">
-                            <button className="text-blue-400 hover:text-blue-300">
+                            <button 
+                              className="text-blue-400 hover:text-blue-300" 
+                              title="View Details"
+                            >
                               <Eye className="w-4 h-4" />
                             </button>
-                            <button className="text-yellow-400 hover:text-yellow-300">
-                              <Edit3 className="w-4 h-4" />
-                            </button>
-                            <button className="text-red-400 hover:text-red-300">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {user.status === 'active' ? (
+                              <>
+                                <button 
+                                  onClick={() => updateUserStatus(user.id, 'deactivated')}
+                                  className="text-yellow-400 hover:text-yellow-300"
+                                  title="Deactivate User"
+                                >
+                                  <XCircle className="w-4 h-4" />
+                                </button>
+                                <button 
+                                  onClick={() => updateUserStatus(user.id, 'banned')}
+                                  className="text-red-400 hover:text-red-300"
+                                  title="Ban User"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </>
+                            ) : (
+                              <button 
+                                onClick={() => updateUserStatus(user.id, 'active')}
+                                className="text-green-400 hover:text-green-300"
+                                title="Activate User"
+                              >
+                                <CheckCircle className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

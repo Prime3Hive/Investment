@@ -66,15 +66,16 @@ interface DataContextType {
   walletAddresses: { BTC: string; USDT: string };
   updateInvestmentPlans: (plans: InvestmentPlan[]) => Promise<void>;
   createInvestment: (planId: string, amount: number, userId: string) => Promise<boolean>;
-  createDepositRequest: (userId: string, amount: number, currency: 'BTC' | 'USDT', userName: string) => Promise<void>;
-  createWithdrawalRequest: (userId: string, amount: number, currency: 'BTC' | 'USDT', walletAddress: string, userName: string) => Promise<void>;
-  updateDepositStatus: (depositId: string, status: 'pending' | 'confirmed' | 'rejected', userId?: string) => Promise<void>;
-  updateWithdrawalStatus: (withdrawalId: string, status: 'pending' | 'approved' | 'completed' | 'rejected', userId?: string) => Promise<void>;
+  createDepositRequest: (userId: string, amount: number, currency: 'BTC' | 'USDT') => Promise<void>;
+  createWithdrawalRequest: (userId: string, amount: number, currency: 'BTC' | 'USDT', walletAddress: string) => Promise<void>;
+  updateDepositStatus: (depositId: string, status: 'pending' | 'confirmed' | 'rejected', userId: string) => Promise<void>;
+  updateWithdrawalStatus: (withdrawalId: string, status: 'pending' | 'approved' | 'completed' | 'rejected', userId: string) => Promise<void>;
   getUserInvestments: (userId: string) => Investment[];
   getUserTransactions: (userId: string) => Transaction[];
   getAllUsers: () => Promise<any[]>;
   updateUserBalance: (userId: string, amount: number) => Promise<void>;
-  refreshData: () => Promise<void>;
+  updateUserStatus: (userId: string, status: 'active' | 'deactivated' | 'banned') => Promise<void>;
+  refreshData: (specificData?: string[]) => Promise<void>;
   isLoading: boolean;
   error: string | null;
 }
@@ -105,11 +106,45 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [error, setError] = useState<string | null>(null);
 
   // Cache to prevent unnecessary refetches
-  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
-  const CACHE_DURATION = 30000; // 30 seconds
+  const [dataCache, setDataCache] = useState<{
+    investmentPlans?: number;
+    investments?: number;
+    deposits?: number;
+    withdrawals?: number;
+    transactions?: number;
+  }>({});
+  const CACHE_DURATION = 60000; // 60 seconds
 
+  // Helper function for retry logic with exponential backoff
+  const retryOperation = async (operation: () => Promise<any>, maxRetries = 3, delay = 1000) => {
+    let retries = 0;
+    let lastError;
+    
+    while (retries < maxRetries) {
+      try {
+        return await operation();
+      } catch (error: any) {
+        lastError = error;
+        console.log(`Retry ${retries + 1}/${maxRetries} failed: ${error.message || 'Unknown error'}`);
+        
+        // If we're rate limited (429), wait much longer
+        const waitTime = error?.status === 429 
+          ? delay * Math.pow(3, retries) + Math.random() * 2000 // More aggressive exponential backoff with jitter
+          : delay * Math.pow(1.5, retries) + Math.random() * 500; // Still add some backoff for other errors
+        
+        console.log(`Waiting ${Math.round(waitTime/1000)} seconds before retry ${retries + 1}`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        retries++;
+      }
+    }
+    
+    console.error(`All ${maxRetries} retries failed`);
+    throw lastError || new Error('Operation failed after retries');
+  };
+  
   useEffect(() => {
     let mounted = true;
+    let loadingTimer: ReturnType<typeof setTimeout>;
     
     const initializeData = async () => {
       if (!mounted) return;
@@ -118,65 +153,154 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setIsLoading(true);
         setError(null);
         
-        // Always fetch investment plans (public data)
-        await fetchInvestmentPlans();
+        const now = Date.now();
         
-        // Fetch user-specific data only if user is logged in
+        // Set a minimum loading time to prevent flickering
+        // Increased to 2000ms to ensure UI is stable
+        loadingTimer = setTimeout(() => {
+          if (mounted) setIsLoading(false);
+        }, 2000);
+        
+        // Initialize empty arrays to prevent rendering errors
+        setInvestmentPlans([]);
+        setInvestments([]);
+        setTransactions([]);
+        setDepositRequests([]);
+        setWithdrawalRequests([]);
+        
+        // Step 1: Always fetch investment plans (public data) first
+        // Check cache first
+        try {
+          if (!dataCache.investmentPlans || (now - (dataCache.investmentPlans || 0) > CACHE_DURATION)) {
+            await retryOperation(() => fetchInvestmentPlans(), 5, 1000); // More retries, longer delay
+            setDataCache(prev => ({ ...prev, investmentPlans: now }));
+          }
+        } catch (err) {
+          console.error('Failed to fetch investment plans:', err);
+          // Don't throw, continue with other data
+        }
+        
+        // Only fetch user-specific data if logged in
         if (user) {
-          await Promise.all([
-            fetchInvestments(),
-            fetchDepositRequests(),
-            fetchWithdrawalRequests(),
-            fetchTransactions()
-          ]);
+          // Step 2: Fetch critical data first - investments
+          try {
+            if (!dataCache.investments || (now - (dataCache.investments || 0) > CACHE_DURATION)) {
+              await retryOperation(() => fetchInvestments(), 5, 1000);
+              setDataCache(prev => ({ ...prev, investments: now }));
+            }
+          } catch (err) {
+            console.error('Failed to fetch investments:', err);
+            // Don't throw, continue with other data
+          }
+          
+          // Step 3: Fetch transactions with a small delay
+          try {
+            if (!dataCache.transactions || (now - (dataCache.transactions || 0) > CACHE_DURATION)) {
+              await new Promise(resolve => setTimeout(resolve, 500)); // Increased delay
+              await retryOperation(() => fetchTransactions(), 5, 1000);
+              setDataCache(prev => ({ ...prev, transactions: now }));
+            }
+          } catch (err) {
+            console.error('Failed to fetch transactions:', err);
+            // Don't throw, continue with other data
+          }
+          
+          // Step 4: Fetch remaining data with delays between calls
+          try {
+            if (!dataCache.deposits || (now - (dataCache.deposits || 0) > CACHE_DURATION)) {
+              await new Promise(resolve => setTimeout(resolve, 500)); // Increased delay
+              await retryOperation(() => fetchDepositRequests(), 5, 1000);
+              setDataCache(prev => ({ ...prev, deposits: now }));
+            }
+          } catch (err) {
+            console.error('Failed to fetch deposits:', err);
+            // Don't throw, continue with other data
+          }
+          
+          try {
+            if (!dataCache.withdrawals || (now - (dataCache.withdrawals || 0) > CACHE_DURATION)) {
+              await new Promise(resolve => setTimeout(resolve, 500)); // Increased delay
+              await retryOperation(() => fetchWithdrawalRequests(), 5, 1000);
+              setDataCache(prev => ({ ...prev, withdrawals: now }));
+            }
+          } catch (err) {
+            console.error('Failed to fetch withdrawals:', err);
+            // Don't throw, continue with other data
+          }
         }
-        
-        setLastFetchTime(Date.now());
-      } catch (err) {
-        console.error('❌ Error initializing data:', err);
-        setError('Failed to load data. Please try again.');
+      } catch (error) {
+        console.error(' Error initializing data:', error);
+        setError('Failed to load data. Please refresh the page.');
       } finally {
-        if (mounted) {
-          setIsLoading(false);
-        }
+        // Clear the loading timer if it hasn't fired yet
+        if (loadingTimer) clearTimeout(loadingTimer);
+        if (mounted) setIsLoading(false);
       }
     };
-
+    
     initializeData();
-
+    
     return () => {
       mounted = false;
+      if (loadingTimer) clearTimeout(loadingTimer);
     };
   }, [user?.id]); // Only depend on user ID to prevent unnecessary refetches
 
-  const refreshData = async () => {
-    const now = Date.now();
+  const refreshData = async (specificData?: string[]) => {
+    if (!mounted) return;
     
-    // Prevent too frequent refreshes
-    if (now - lastFetchTime < CACHE_DURATION) {
-      console.log('⏰ Skipping refresh - too soon');
-      return;
-    }
-
     try {
       setIsLoading(true);
       setError(null);
       
-      await Promise.all([
-        fetchInvestmentPlans(),
-        user ? fetchInvestments() : Promise.resolve(),
-        user ? fetchDepositRequests() : Promise.resolve(),
-        user ? fetchWithdrawalRequests() : Promise.resolve(),
-        user ? fetchTransactions() : Promise.resolve()
-      ]);
+      const now = Date.now();
       
-      setLastFetchTime(now);
-      console.log('✅ Data refreshed successfully');
-    } catch (err) {
-      console.error('❌ Error refreshing data:', err);
+      // If specific data types are requested, only refresh those
+      if (specificData && specificData.length > 0) {
+        // Stagger API calls to avoid rate limiting
+        for (const dataType of specificData) {
+          try {
+            switch (dataType) {
+              case 'investmentPlans':
+                await retryOperation(() => fetchInvestmentPlans(), 5, 1000);
+                setDataCache(prev => ({ ...prev, investmentPlans: now }));
+                break;
+              case 'investments':
+                await retryOperation(() => fetchInvestments(), 5, 1000);
+                setDataCache(prev => ({ ...prev, investments: now }));
+                break;
+              case 'deposits':
+                await retryOperation(() => fetchDepositRequests(), 5, 1000);
+                setDataCache(prev => ({ ...prev, deposits: now }));
+                break;
+              case 'withdrawals':
+                await retryOperation(() => fetchWithdrawalRequests(), 5, 1000);
+                setDataCache(prev => ({ ...prev, withdrawals: now }));
+                break;
+              case 'transactions':
+                await retryOperation(() => fetchTransactions(), 5, 1000);
+                setDataCache(prev => ({ ...prev, transactions: now }));
+                break;
+              default:
+                break;
+            }
+          } catch (err) {
+            console.error(`Failed to refresh ${dataType}:`, err);
+            // Continue with other data types even if one fails
+          }
+          
+          // Add a larger delay between API calls to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 800));
+        }
+      } else {
+        // Refresh all data with the improved initializeData function
+        await initializeData();
+      }
+    } catch (error) {
+      console.error(' Error refreshing data:', error);
       setError('Failed to refresh data. Please try again.');
     } finally {
-      setIsLoading(false);
+      if (mounted) setIsLoading(false);
     }
   };
 
@@ -184,7 +308,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const { data, error } = await supabase
         .from('investment_plans')
-        .select('*')
+        .select('id, name, min_amount, max_amount, roi, duration_hours, description, is_active')
         .eq('is_active', true)
         .order('min_amount');
 
@@ -212,19 +336,21 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!user) return;
 
     try {
+      // For regular users, only fetch active investments first for faster loading
+      // and limit to 20 for better performance
       const { data, error } = await supabase
         .from('investments')
         .select(`
-          *,
-          investment_plans (*)
+          id, user_id, plan_id, amount, start_date, end_date, roi, status,
+          investment_plans (id, name, min_amount, max_amount, roi, duration_hours, is_active)
         `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(50); // Limit to prevent large queries
+        .limit(20);
 
       if (error) throw error;
 
-      const userInvestments: Investment[] = data.map(inv => ({
+      const userInvestments: Investment[] = data.map((inv: any) => ({
         id: inv.id,
         userId: inv.user_id,
         planId: inv.plan_id,
@@ -240,7 +366,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           maxAmount: parseFloat(inv.investment_plans.max_amount),
           roi: parseFloat(inv.investment_plans.roi),
           duration: inv.investment_plans.duration_hours,
-          description: inv.investment_plans.description,
+          description: inv.investment_plans.description || '',
           isActive: inv.investment_plans.is_active
         }
       }));
@@ -256,22 +382,33 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!user) return;
 
     try {
-      let query = supabase.from('deposit_requests').select(`
-        *,
-        profiles (name)
-      `);
-
-      if (!user.isAdmin) {
-        query = query.eq('user_id', user.id);
+      // Only select necessary fields for regular users
+      let query;
+      
+      if (user.isAdmin) {
+        query = supabase
+          .from('deposit_requests')
+          .select(`
+            id, user_id, amount, currency, wallet_address, status, created_at,
+            profiles (name)
+          `)
+          .order('created_at', { ascending: false })
+          .limit(50);
+      } else {
+        // For regular users, we don't need the profiles join
+        query = supabase
+          .from('deposit_requests')
+          .select('id, user_id, amount, currency, wallet_address, status, created_at')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(10);
       }
 
-      const { data, error } = await query
-        .order('created_at', { ascending: false })
-        .limit(100); // Limit to prevent large queries
+      const { data, error } = await query;
 
       if (error) throw error;
 
-      const deposits: DepositRequest[] = data.map(deposit => ({
+      const deposits: DepositRequest[] = data.map((deposit: any) => ({
         id: deposit.id,
         userId: deposit.user_id,
         amount: parseFloat(deposit.amount),
@@ -279,7 +416,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         walletAddress: deposit.wallet_address,
         status: deposit.status,
         createdAt: new Date(deposit.created_at),
-        userName: deposit.profiles?.name || 'Unknown'
+        userName: user.isAdmin ? (deposit.profiles?.name || 'Unknown') : user.name || 'Unknown'
       }));
 
       setDepositRequests(deposits);
@@ -293,22 +430,33 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!user) return;
 
     try {
-      let query = supabase.from('withdrawal_requests').select(`
-        *,
-        profiles (name)
-      `);
-
-      if (!user.isAdmin) {
-        query = query.eq('user_id', user.id);
+      // Only select necessary fields for regular users
+      let query;
+      
+      if (user.isAdmin) {
+        query = supabase
+          .from('withdrawal_requests')
+          .select(`
+            id, user_id, amount, currency, wallet_address, status, created_at,
+            profiles (name)
+          `)
+          .order('created_at', { ascending: false })
+          .limit(50);
+      } else {
+        // For regular users, we don't need the profiles join
+        query = supabase
+          .from('withdrawal_requests')
+          .select('id, user_id, amount, currency, wallet_address, status, created_at')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(10);
       }
 
-      const { data, error } = await query
-        .order('created_at', { ascending: false })
-        .limit(100); // Limit to prevent large queries
+      const { data, error } = await query;
 
       if (error) throw error;
 
-      const withdrawals: WithdrawalRequest[] = data.map(withdrawal => ({
+      const withdrawals: WithdrawalRequest[] = data.map((withdrawal: any) => ({
         id: withdrawal.id,
         userId: withdrawal.user_id,
         amount: parseFloat(withdrawal.amount),
@@ -316,7 +464,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         walletAddress: withdrawal.wallet_address,
         status: withdrawal.status,
         createdAt: new Date(withdrawal.created_at),
-        userName: withdrawal.profiles?.name || 'Unknown'
+        userName: user.isAdmin ? (withdrawal.profiles?.name || 'Unknown') : user.name || 'Unknown'
       }));
 
       setWithdrawalRequests(withdrawals);
@@ -330,7 +478,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!user) return;
 
     try {
-      let query = supabase.from('transactions').select('*');
+      // Only select necessary fields and limit to 10 for dashboard
+      let query = supabase
+        .from('transactions')
+        .select('id, user_id, type, amount, status, created_at, description');
 
       if (!user.isAdmin) {
         query = query.eq('user_id', user.id);
@@ -338,11 +489,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       const { data, error } = await query
         .order('created_at', { ascending: false })
-        .limit(50); // Limit to prevent large queries
+        .limit(10); // Reduced limit for faster dashboard loading
 
       if (error) throw error;
 
-      const userTransactions: Transaction[] = data.map(transaction => ({
+      const userTransactions: Transaction[] = data.map((transaction: any) => ({
         id: transaction.id,
         userId: transaction.user_id,
         type: transaction.type,
@@ -417,7 +568,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const createDepositRequest = async (userId: string, amount: number, currency: 'BTC' | 'USDT', userName: string) => {
+  const createDepositRequest = async (userId: string, amount: number, currency: 'BTC' | 'USDT') => {
     try {
       const { error: depositError } = await supabase
         .from('deposit_requests')
@@ -452,7 +603,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const createWithdrawalRequest = async (userId: string, amount: number, currency: 'BTC' | 'USDT', walletAddress: string, userName: string) => {
+  const createWithdrawalRequest = async (userId: string, amount: number, currency: 'BTC' | 'USDT', walletAddress: string) => {
     try {
       const { error: withdrawalError } = await supabase
         .from('withdrawal_requests')
@@ -487,7 +638,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const updateDepositStatus = async (depositId: string, status: 'pending' | 'confirmed' | 'rejected', userId?: string) => {
+  const updateDepositStatus = async (depositId: string, status: 'pending' | 'confirmed' | 'rejected', userId: string) => {
     try {
       // Update deposit status
       const { error: updateError } = await supabase
@@ -537,7 +688,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const updateWithdrawalStatus = async (withdrawalId: string, status: 'pending' | 'approved' | 'completed' | 'rejected', userId?: string) => {
+  const updateWithdrawalStatus = async (withdrawalId: string, status: 'pending' | 'approved' | 'completed' | 'rejected', userId: string) => {
     try {
       // Update withdrawal status
       const { error: updateError } = await supabase
@@ -618,6 +769,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         usdtWallet: profile.usdt_wallet,
         balance: parseFloat(profile.balance),
         isAdmin: profile.is_admin,
+        status: profile.status || 'active',
         createdAt: new Date(profile.created_at)
       }));
     } catch (error) {
@@ -640,6 +792,23 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const updateUserStatus = async (userId: string, status: 'active' | 'deactivated' | 'banned') => {
+    try {
+      const { error } = await supabase.rpc('update_user_status', {
+        user_id: userId,
+        new_status: status
+      });
+
+      if (error) throw error;
+      
+      // Refresh user data after status change
+      await refreshData();
+    } catch (error) {
+      console.error('❌ Error updating user status:', error);
+      throw error;
+    }
+  };
+
   const value: DataContextType = {
     investmentPlans,
     investments,
@@ -657,6 +826,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     getUserTransactions,
     getAllUsers,
     updateUserBalance,
+    updateUserStatus,
     refreshData,
     isLoading,
     error

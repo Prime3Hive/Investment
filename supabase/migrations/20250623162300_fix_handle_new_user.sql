@@ -72,6 +72,10 @@ CREATE OR REPLACE FUNCTION create_missing_profile(user_id UUID)
 RETURNS VOID AS $$
 DECLARE
   user_record RECORD;
+  meta_data JSONB;
+  user_name TEXT;
+  btc_wallet TEXT;
+  usdt_wallet TEXT;
 BEGIN
   -- Get the user from auth.users
   SELECT * INTO user_record FROM auth.users WHERE id = user_id;
@@ -80,7 +84,47 @@ BEGIN
     RAISE EXCEPTION 'User with ID % not found', user_id;
   END IF;
   
-  -- Call the handle_new_user function manually
-  PERFORM handle_new_user();
+  -- Check if profile already exists
+  IF EXISTS (SELECT 1 FROM public.profiles WHERE id = user_id) THEN
+    RAISE LOG 'Profile already exists for user %', user_id;
+    RETURN;
+  END IF;
+  
+  -- Extract user data similar to handle_new_user function
+  BEGIN
+    -- Get the metadata safely
+    meta_data := COALESCE(user_record.raw_user_meta_data, '{}'::jsonb);
+    
+    -- Extract values with fallbacks
+    user_name := COALESCE(
+      meta_data->>'name',
+      user_record.email,
+      'New User'
+    );
+    
+    btc_wallet := COALESCE(meta_data->>'btc_wallet', '');
+    usdt_wallet := COALESCE(meta_data->>'usdt_wallet', '');
+    
+    RAISE LOG 'create_missing_profile: Extracted name: %, btc_wallet: %, usdt_wallet: %', 
+      user_name, btc_wallet, usdt_wallet;
+  EXCEPTION WHEN OTHERS THEN
+    -- If any error occurs during metadata extraction, use safe defaults
+    RAISE LOG 'create_missing_profile: Error extracting metadata: %', SQLERRM;
+    user_name := COALESCE(user_record.email, 'New User');
+    btc_wallet := '';
+    usdt_wallet := '';
+  END;
+
+  -- Insert the profile with the extracted or default values
+  BEGIN
+    INSERT INTO public.profiles (id, name, btc_wallet, usdt_wallet)
+    VALUES (user_id, user_name, btc_wallet, usdt_wallet);
+    
+    RAISE LOG 'create_missing_profile: Successfully created profile for user %', user_id;
+  EXCEPTION WHEN OTHERS THEN
+    -- Log the error but don't fail the function
+    RAISE LOG 'create_missing_profile: Error creating profile for user %: %', user_id, SQLERRM;
+    RAISE EXCEPTION 'Failed to create profile for user %: %', user_id, SQLERRM;
+  END;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

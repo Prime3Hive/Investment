@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { 
   Wallet, 
-  Copy, 
   CheckCircle, 
   AlertCircle, 
   Bitcoin, 
@@ -13,16 +12,29 @@ import {
   Shield,
   ArrowDownLeft
 } from 'lucide-react';
+import Skeleton from '../components/SkeletonLoader';
 
 const WithdrawPage: React.FC = () => {
   const { user } = useAuth();
-  const { createWithdrawalRequest } = useData();
+  const { createWithdrawalRequest, isLoading } = useData();
   const [selectedCurrency, setSelectedCurrency] = useState<'BTC' | 'USDT'>('BTC');
   const [withdrawalAmount, setWithdrawalAmount] = useState('');
   const [walletAddress, setWalletAddress] = useState('');
   const [step, setStep] = useState(1); // 1: Amount, 2: Wallet, 3: Confirmation
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [pageLoading, setPageLoading] = useState(true);
+
+  // Simulate progressive loading
+  useEffect(() => {
+    // Add a small delay to show skeleton even if data loads quickly
+    // This prevents UI flickering for fast loads
+    const timer = setTimeout(() => {
+      setPageLoading(isLoading);
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [isLoading]);
 
   const handleSubmitWithdrawal = async () => {
     if (!user || !withdrawalAmount || !walletAddress) return;
@@ -55,8 +67,7 @@ const WithdrawPage: React.FC = () => {
         user.id,
         amount,
         selectedCurrency,
-        walletAddress,
-        user.name
+        walletAddress
       );
       
       setStep(3);
@@ -84,6 +95,81 @@ const WithdrawPage: React.FC = () => {
       color: 'from-green-400 to-green-600'
     }
   ];
+
+  // Withdraw Page Skeleton UI
+  const WithdrawPageSkeleton = () => (
+    <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto">
+        {/* Header Skeleton */}
+        <div className="text-center mb-8">
+          <Skeleton height="2rem" width="40%" className="mx-auto mb-2" rounded />
+          <Skeleton height="1rem" width="60%" className="mx-auto" rounded />
+        </div>
+
+        {/* Progress Steps Skeleton */}
+        <div className="flex justify-center items-center space-x-4 mb-8">
+          {Array(3).fill(0).map((_, i) => (
+            <div key={i} className="flex items-center">
+              <Skeleton height="2rem" width="2rem" circle />
+              {i < 2 && <Skeleton height="0.25rem" width="3rem" className="mx-2" />}
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Main Content Skeleton */}
+          <div className="md:col-span-2 bg-slate-800 rounded-lg p-6 border border-slate-700">
+            <Skeleton height="1.5rem" width="60%" className="mb-4" rounded />
+            <div className="space-y-4">
+              <Skeleton height="3rem" width="100%" rounded />
+              <Skeleton height="3rem" width="100%" rounded />
+              <Skeleton height="3rem" width="100%" rounded />
+              <Skeleton height="2.5rem" width="40%" className="ml-auto" rounded />
+            </div>
+          </div>
+
+          {/* Sidebar Skeleton */}
+          <div className="space-y-6">
+            {/* Current Balance Skeleton */}
+            <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
+              <Skeleton height="1.5rem" width="80%" className="mb-4" rounded />
+              <div className="text-center">
+                <Skeleton height="2rem" width="60%" className="mx-auto mb-2" rounded />
+                <Skeleton height="1rem" width="70%" className="mx-auto" rounded />
+              </div>
+            </div>
+
+            {/* Withdrawal Info Skeleton */}
+            <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
+              <Skeleton height="1.5rem" width="80%" className="mb-4" rounded />
+              <div className="space-y-4">
+                {Array(3).fill(0).map((_, i) => (
+                  <div key={i} className="flex items-center space-x-3">
+                    <Skeleton height="2rem" width="2rem" circle />
+                    <div className="flex-1">
+                      <Skeleton height="1rem" width="60%" className="mb-1" rounded />
+                      <Skeleton height="0.8rem" width="80%" rounded />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Support Skeleton */}
+            <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
+              <Skeleton height="1.5rem" width="60%" className="mb-4" rounded />
+              <Skeleton height="3rem" width="100%" className="mb-4" rounded />
+              <Skeleton height="2.5rem" width="100%" rounded />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+  
+  if (pageLoading) {
+    return <WithdrawPageSkeleton />;
+  }
 
   if (step === 3) {
     return (
@@ -116,7 +202,7 @@ const WithdrawPage: React.FC = () => {
           </div>
           <button
             onClick={() => window.location.href = '/dashboard'}
-            className="w-full py-3 bg-gradient-to-r from-yellow-400 to-yellow-600 text-slate-900 font-semibold rounded-lg hover:from-yellow-500 hover:to-yellow-700 transition-all duration-300"
+            className="w-full py-3 bg-gradient-to-r from-blue-400 to-blue-600 text-white font-semibold rounded-lg hover:from-blue-500 hover:to-blue-700 transition-all duration-300"
           >
             Go to Dashboard
           </button>

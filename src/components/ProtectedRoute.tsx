@@ -1,6 +1,7 @@
 import React, { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import Skeleton from './SkeletonLoader';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -14,8 +15,13 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, adminOnly = f
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
-          <p className="text-slate-400">Loading...</p>
+          <div className="flex flex-col items-center space-y-4">
+            <Skeleton height="3rem" width="3rem" rounded />
+            <Skeleton height="1.5rem" width="8rem" rounded />
+            <div className="mt-2">
+              <Skeleton height="1rem" width="12rem" rounded />
+            </div>
+          </div>
         </div>
       </div>
     );

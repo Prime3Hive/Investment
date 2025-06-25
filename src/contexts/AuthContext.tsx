@@ -46,6 +46,41 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastActivity, setLastActivity] = useState<number>(Date.now());
+  const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+  // Track user activity
+  useEffect(() => {
+    if (!user) return; // Only track activity when user is logged in
+    
+    // Update last activity timestamp on user interactions
+    const updateActivity = () => setLastActivity(Date.now());
+    
+    // Events to track for activity
+    const events = ['mousedown', 'keypress', 'scroll', 'mousemove', 'touchstart'];
+    
+    // Add event listeners
+    events.forEach(event => {
+      window.addEventListener(event, updateActivity);
+    });
+    
+    // Check for inactivity every minute
+    const inactivityCheck = setInterval(() => {
+      const now = Date.now();
+      if (now - lastActivity > INACTIVITY_TIMEOUT) {
+        console.log('⏰ User inactive for 5 minutes, logging out');
+        logout();
+      }
+    }, 60000); // Check every minute
+    
+    // Cleanup
+    return () => {
+      events.forEach(event => {
+        window.removeEventListener(event, updateActivity);
+      });
+      clearInterval(inactivityCheck);
+    };
+  }, [user, lastActivity]); // Re-run when user or lastActivity changes
 
   useEffect(() => {
     let mounted = true;
@@ -206,28 +241,44 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      setError(null);
       setIsLoading(true);
-      
-      const { data, error } = await supabase.auth.signInWithPassword({
+      setError(null);
+      const { error } = await supabase.auth.signInWithPassword({
         email,
-        password
+        password,
       });
 
       if (error) {
         setError(error.message);
         return false;
       }
-
-      if (data.user && !data.user.email_confirmed_at) {
-        setError('Please verify your email before signing in');
+      
+      // Check if user is banned or deactivated
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('status')
+        .eq('id', (await supabase.auth.getUser()).data.user?.id)
+        .single();
+      
+      if (profileError) {
+        console.error('Error fetching user profile:', profileError.message);
+        setError('Failed to verify account status');
+        return false;
+      }
+      
+      // If user is banned or deactivated, sign them out and return error
+      if (profile?.status === 'banned' || profile?.status === 'deactivated') {
+        await supabase.auth.signOut();
+        setError(profile.status === 'banned' 
+          ? 'Your account has been banned. Please contact support.'
+          : 'Your account has been deactivated. Please contact support.');
         return false;
       }
       
       return true;
-    } catch (error) {
-      console.error('❌ Login error:', error);
-      setError('An error occurred during login');
+    } catch (error: any) {
+      console.error('Error logging in:', error.message);
+      setError(error.message || 'An error occurred during login');
       return false;
     } finally {
       setIsLoading(false);
@@ -271,6 +322,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       await supabase.auth.signOut();
       setUser(null);
       setError(null);
+      // Reset last activity when logging out
+      setLastActivity(Date.now());
     } catch (error) {
       console.error('❌ Logout error:', error);
     }

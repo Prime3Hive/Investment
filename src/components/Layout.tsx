@@ -1,20 +1,45 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useData } from '../contexts/DataContext';
 import { TrendingUp, User, LogOut, Menu, X } from 'lucide-react';
+import Skeleton from './SkeletonLoader';
 
 interface LayoutProps {
   children: ReactNode;
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, isLoading: authLoading } = useAuth();
+  const { isLoading: dataLoading } = useData();
   const location = useLocation();
   const navigate = useNavigate();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [layoutLoading, setLayoutLoading] = useState(true);
+  
+  // Control loading state with a small delay to prevent flickering
+  useEffect(() => {
+    // Only show skeleton for initial app load, not for subsequent data fetches
+    if (layoutLoading) {
+      const timer = setTimeout(() => {
+        setLayoutLoading(false);
+      }, 800); // Slightly longer delay for layout to ensure a smooth initial experience
+      
+      return () => clearTimeout(timer);
+    }
+  }, [layoutLoading]);
+  
+  // Update layout loading state based on auth and data loading states
+  useEffect(() => {
+    // If both auth and data are done loading but layout is still showing as loading,
+    // we can safely end the layout loading state
+    if (!authLoading && !dataLoading && layoutLoading) {
+      setLayoutLoading(false);
+    }
+  }, [authLoading, dataLoading, layoutLoading]);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/');
   };
 
@@ -45,6 +70,69 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { path: '/profile', label: 'Profile' },
   ];
 
+  // Layout Skeleton UI
+  const LayoutSkeleton = () => (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      {/* Navigation Skeleton */}
+      <nav className="bg-slate-900/80 backdrop-blur-md border-b border-slate-700/50 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            {/* Logo Skeleton */}
+            <div className="flex items-center space-x-2">
+              <Skeleton height="2rem" width="2rem" rounded />
+              <Skeleton height="1.5rem" width="6rem" rounded />
+            </div>
+
+            {/* Desktop Navigation Skeleton */}
+            <div className="hidden md:flex items-center space-x-8">
+              {Array(4).fill(0).map((_, i) => (
+                <Skeleton key={i} height="1rem" width="4rem" rounded />
+              ))}
+            </div>
+
+            {/* User Menu Skeleton */}
+            <div className="flex items-center space-x-4">
+              <Skeleton height="2rem" width="6rem" rounded />
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Content Skeleton - Just a container for children */}
+      <main className="flex-1">
+        {/* Children will have their own skeleton loaders */}
+        {children}
+      </main>
+
+      {/* Footer Skeleton */}
+      <footer className="bg-slate-900 border-t border-slate-700/50 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            {Array(4).fill(0).map((_, i) => (
+              <div key={i}>
+                <Skeleton height="1.5rem" width="8rem" className="mb-4" rounded />
+                <div className="space-y-2">
+                  {Array(3).fill(0).map((_, j) => (
+                    <Skeleton key={j} height="1rem" width="80%" rounded />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          <div className="border-t border-slate-700/50 mt-8 pt-8 text-center">
+            <Skeleton height="1rem" width="60%" className="mx-auto" rounded />
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+  
+  // Show skeleton during initial load
+  if (layoutLoading) {
+    return <LayoutSkeleton />;
+  }
+  
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Navigation */}
@@ -110,10 +198,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <div className="flex items-center space-x-4">
               {user ? (
                 <>
-                  <div className="hidden md:flex items-center space-x-2 text-slate-300">
+                  <Link to="/profile" className="hidden md:flex items-center space-x-2 text-slate-300 hover:text-white transition-colors">
                     <User className="w-4 h-4" />
                     <span className="text-sm">{user.name}</span>
-                  </div>
+                  </Link>
                   <button
                     onClick={handleLogout}
                     className="flex items-center space-x-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"

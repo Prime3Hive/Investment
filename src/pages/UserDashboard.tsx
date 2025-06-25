@@ -17,10 +17,29 @@ import {
   Calendar,
   AlertCircle
 } from 'lucide-react';
+import Skeleton from '../components/SkeletonLoader';
 
 const UserDashboard: React.FC = () => {
   const { user } = useAuth();
   const { getUserInvestments, getUserTransactions, refreshData, isLoading, error } = useData();
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  
+  // Load essential data first when component mounts
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      try {
+        setDashboardLoading(true);
+        // Only load the data we need for the initial dashboard view
+        await refreshData(['investments', 'transactions']);
+      } catch (err) {
+        console.error('Error loading dashboard data:', err);
+      } finally {
+        setDashboardLoading(false);
+      }
+    };
+    
+    loadDashboardData();
+  }, [refreshData]);
 
   // Memoize expensive calculations
   const { investments, transactions, stats } = useMemo(() => {
@@ -74,11 +93,20 @@ const UserDashboard: React.FC = () => {
     };
   }, [user, getUserInvestments, getUserTransactions]);
 
-  const handleRefresh = async () => {
+  const handleRefresh = async (section?: string) => {
     try {
-      await refreshData();
+      setDashboardLoading(true);
+      if (section === 'investments') {
+        await refreshData(['investments']);
+      } else if (section === 'transactions') {
+        await refreshData(['transactions']);
+      } else {
+        await refreshData(['investments', 'transactions']);
+      }
     } catch (error) {
       console.error('❌ Error refreshing data:', error);
+    } finally {
+      setDashboardLoading(false);
     }
   };
 
@@ -95,15 +123,95 @@ const UserDashboard: React.FC = () => {
     return `${hours}h ${minutes}m`;
   };
 
+  // Show skeleton UI while loading instead of a spinner
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
-          <p className="text-slate-400">Loading dashboard...</p>
+          <p className="text-slate-400">Loading user data...</p>
         </div>
       </div>
     );
+  }
+  
+  // Dashboard skeleton UI
+  const DashboardSkeleton = () => (
+    <div className="container mx-auto px-4 py-8">
+      <div className="mb-8">
+        <Skeleton height="2rem" width="60%" className="mb-2" rounded />
+        <Skeleton height="1rem" width="40%" rounded />
+      </div>
+      
+      {/* Stats Cards Skeleton */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {Array(4).fill(0).map((_, i) => (
+          <div key={i} className="bg-slate-800 rounded-lg p-6 border border-slate-700">
+            <div className="flex justify-between items-center mb-4">
+              <Skeleton height="1.5rem" width="60%" rounded />
+              <Skeleton height="2rem" width="2rem" circle />
+            </div>
+            <Skeleton height="2rem" width="40%" className="mb-2" rounded />
+            <Skeleton height="1rem" width="30%" rounded />
+          </div>
+        ))}
+      </div>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Active Investments Skeleton */}
+        <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
+          <div className="flex items-center justify-between mb-6">
+            <Skeleton height="1.5rem" width="60%" rounded />
+            <Skeleton height="1.5rem" width="1.5rem" circle />
+          </div>
+          <div className="space-y-4">
+            {Array(3).fill(0).map((_, i) => (
+              <div key={i} className="p-4 bg-slate-700 rounded-lg">
+                <div className="flex justify-between mb-2">
+                  <Skeleton height="1.2rem" width="40%" rounded />
+                  <Skeleton height="1.2rem" width="20%" rounded />
+                </div>
+                <div className="mb-4">
+                  <Skeleton height="1rem" width="60%" rounded />
+                </div>
+                <div className="w-full bg-slate-600 rounded-full h-2">
+                  <Skeleton height="0.5rem" width="60%" rounded />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {/* Recent Transactions Skeleton */}
+        <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
+          <div className="flex items-center justify-between mb-6">
+            <Skeleton height="1.5rem" width="60%" rounded />
+            <Skeleton height="1.5rem" width="1.5rem" circle />
+          </div>
+          <div className="space-y-4">
+            {Array(5).fill(0).map((_, i) => (
+              <div key={i} className="flex items-center justify-between p-4 bg-slate-700 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <Skeleton height="2.5rem" width="2.5rem" circle />
+                  <div>
+                    <Skeleton height="1rem" width="8rem" className="mb-1" rounded />
+                    <Skeleton height="0.8rem" width="5rem" rounded />
+                  </div>
+                </div>
+                <div className="text-right">
+                  <Skeleton height="1rem" width="5rem" className="mb-1" rounded />
+                  <Skeleton height="0.8rem" width="3rem" rounded />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+  
+  if (dashboardLoading) {
+    return <DashboardSkeleton />;
   }
 
   return (
@@ -121,11 +229,11 @@ const UserDashboard: React.FC = () => {
               </p>
             </div>
             <button
-              onClick={handleRefresh}
-              disabled={isLoading}
-              className="flex items-center space-x-2 px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-slate-300 hover:text-white hover:border-slate-500 transition-colors disabled:opacity-50"
+              onClick={() => handleRefresh()}
+              disabled={isLoading || dashboardLoading}
+              className="flex items-center space-x-1 bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-md transition-colors"
             >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${dashboardLoading ? 'animate-spin' : ''}`} />
               <span>Refresh</span>
             </button>
           </div>
@@ -224,12 +332,22 @@ const UserDashboard: React.FC = () => {
           <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white">Active Investments</h2>
-              <Link
-                to="/invest"
-                className="text-yellow-400 hover:text-yellow-300 text-sm font-medium"
-              >
-                View All
-              </Link>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => handleRefresh('investments')}
+                  disabled={isLoading || dashboardLoading}
+                  className="text-yellow-400 hover:text-yellow-300"
+                >
+                  <RefreshCw className={`w-4 h-4 ${dashboardLoading ? 'animate-spin' : ''}`} />
+                </button>
+                <Link
+                  to="/invest"
+                  className="flex items-center space-x-1 text-yellow-400 hover:text-yellow-300 text-sm font-medium"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>New Investment</span>
+                </Link>
+              </div>
             </div>
 
             <div className="space-y-4">
@@ -279,11 +397,11 @@ const UserDashboard: React.FC = () => {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white">Recent Transactions</h2>
               <button 
-                onClick={handleRefresh}
+                onClick={() => handleRefresh('transactions')}
                 className="text-yellow-400 hover:text-yellow-300"
-                disabled={isLoading}
+                disabled={isLoading || dashboardLoading}
               >
-                <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-5 h-5 ${dashboardLoading ? 'animate-spin' : ''}`} />
               </button>
             </div>
 

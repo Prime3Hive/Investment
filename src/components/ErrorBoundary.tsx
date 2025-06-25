@@ -1,9 +1,11 @@
 import React, { Component, ReactNode } from 'react';
-import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Home, RotateCcw, Bug } from 'lucide-react';
 
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
+  onReset?: () => void;
+  onError?: (error: Error, errorInfo: any) => void;
 }
 
 interface State {
@@ -38,6 +40,15 @@ class ErrorBoundary extends Component<Props, State> {
       errorInfo
     });
 
+    // Call onError prop if provided
+    if (this.props.onError) {
+      try {
+        this.props.onError(error, errorInfo);
+      } catch (callbackError) {
+        console.error('Error in onError callback:', callbackError);
+      }
+    }
+
     // Log to external service (when properly configured)
     // Sentry.captureException(error, { extra: errorInfo });
   }
@@ -48,6 +59,20 @@ class ErrorBoundary extends Component<Props, State> {
       error: null,
       errorInfo: null
     });
+    
+    // Call onReset prop if provided
+    if (this.props.onReset) {
+      try {
+        this.props.onReset();
+      } catch (callbackError) {
+        console.error('Error in onReset callback:', callbackError);
+      }
+    }
+  };
+  
+  handleReload = () => {
+    // Force a hard reload of the page
+    window.location.reload();
   };
 
   render() {
@@ -66,36 +91,55 @@ class ErrorBoundary extends Component<Props, State> {
             <h2 className="text-2xl font-bold text-white mb-4">Something went wrong</h2>
             
             <p className="text-slate-400 mb-6">
-              We're sorry, but something unexpected happened. Our team has been notified.
+              We're sorry, but something unexpected happened. Please try one of the recovery options below.
             </p>
 
+            {/* Always show a simplified error message for users */}
+            <div className="bg-slate-900/50 rounded-lg p-3 mb-6 text-left">
+              <p className="text-sm text-slate-300">
+                Error: {this.state.error?.message || 'Unknown error'}
+              </p>
+            </div>
+
+            {/* Detailed error info for developers */}
             {process.env.NODE_ENV === 'development' && this.state.error && (
               <div className="bg-slate-900 rounded-lg p-4 mb-6 text-left">
-                <h3 className="text-red-400 font-semibold mb-2">Error Details:</h3>
-                <pre className="text-xs text-slate-300 overflow-auto">
+                <div className="flex items-center mb-2">
+                  <Bug className="w-4 h-4 text-red-400 mr-2" />
+                  <h3 className="text-red-400 font-semibold">Developer Error Details:</h3>
+                </div>
+                <pre className="text-xs text-slate-300 overflow-auto max-h-60 p-2 bg-slate-950 rounded">
                   {this.state.error.toString()}
                   {this.state.errorInfo?.componentStack}
                 </pre>
               </div>
             )}
 
-            <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3 mb-3">
               <button
                 onClick={this.handleReset}
-                className="w-full py-3 px-4 bg-gradient-to-r from-yellow-400 to-yellow-600 text-slate-900 font-semibold rounded-lg hover:from-yellow-500 hover:to-yellow-700 transition-all duration-300 flex items-center justify-center"
+                className="py-3 px-4 bg-gradient-to-r from-yellow-400 to-yellow-600 text-slate-900 font-semibold rounded-lg hover:from-yellow-500 hover:to-yellow-700 transition-all duration-300 flex items-center justify-center"
               >
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Try Again
               </button>
               
               <button
-                onClick={() => window.location.href = '/'}
-                className="w-full py-3 px-4 bg-slate-700 text-white font-semibold rounded-lg hover:bg-slate-600 transition-colors flex items-center justify-center"
+                onClick={this.handleReload}
+                className="py-3 px-4 bg-slate-700 text-white font-semibold rounded-lg hover:bg-slate-600 transition-colors flex items-center justify-center"
               >
-                <Home className="w-4 h-4 mr-2" />
-                Go Home
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Reload Page
               </button>
             </div>
+            
+            <button
+              onClick={() => window.location.href = '/'}
+              className="w-full py-3 px-4 bg-slate-700 text-white font-semibold rounded-lg hover:bg-slate-600 transition-colors flex items-center justify-center"
+            >
+              <Home className="w-4 h-4 mr-2" />
+              Go Home
+            </button>
           </div>
         </div>
       );

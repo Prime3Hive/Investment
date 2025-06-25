@@ -2,6 +2,7 @@ import React, { Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { DataProvider } from './contexts/DataContext';
+import { ToastProvider } from './contexts/ToastContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import Layout from './components/Layout';
 import HomePage from './pages/HomePage';
@@ -33,61 +34,63 @@ const LoadingSpinner = () => (
 
 function App() {
   return (
-    <ErrorBoundary>
-      <AuthProvider>
-        <DataProvider>
-          <Router>
-            <Layout>
-              <Suspense fallback={<LoadingSpinner />}>
-                <Routes>
-                  <Route path="/" element={<HomePage />} />
-                  <Route path="/login" element={<LoginPage />} />
-                  <Route path="/register" element={<RegisterPage />} />
-                  <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-                  <Route path="/about" element={<AboutPage />} />
-                  <Route path="/contact" element={<ContactPage />} />
-                  <Route path="/terms" element={<TermsPage />} />
-                  
-                  {/* Protected User Routes */}
-                  <Route path="/dashboard" element={
-                    <ProtectedRoute>
-                      <UserDashboard />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/invest" element={
-                    <ProtectedRoute>
-                      <InvestmentPlans />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/deposit" element={
-                    <ProtectedRoute>
-                      <DepositPage />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/withdraw" element={
-                    <ProtectedRoute>
-                      <WithdrawPage />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/profile" element={
-                    <ProtectedRoute>
-                      <ProfilePage />
-                    </ProtectedRoute>
-                  } />
-                  
-                  {/* Protected Admin Routes */}
-                  <Route path="/admin" element={
-                    <ProtectedRoute adminOnly>
-                      <AdminDashboard />
-                    </ProtectedRoute>
-                  } />
-                </Routes>
-              </Suspense>
-            </Layout>
-          </Router>
-        </DataProvider>
-      </AuthProvider>
-    </ErrorBoundary>
+    <Router>
+      <ErrorBoundary>
+        <ToastProvider>
+          <AuthProvider>
+            <DataProvider>
+              <Layout>
+                <Suspense fallback={<LoadingSpinner />}>
+                  <Routes>
+                    <Route path="/" element={<HomePage />} />
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="/register" element={<RegisterPage />} />
+                    <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                    <Route path="/about" element={<AboutPage />} />
+                    <Route path="/contact" element={<ContactPage />} />
+                    <Route path="/terms" element={<TermsPage />} />
+                    
+                    {/* Protected User Routes */}
+                    <Route path="/dashboard" element={
+                      <ProtectedRoute>
+                        <UserDashboard />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/invest" element={
+                      <ProtectedRoute>
+                        <InvestmentPlans />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/deposit" element={
+                      <ProtectedRoute>
+                        <DepositPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/withdraw" element={
+                      <ProtectedRoute>
+                        <WithdrawPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/profile" element={
+                      <ProtectedRoute>
+                        <ProfilePage />
+                      </ProtectedRoute>
+                    } />
+                    
+                    {/* Protected Admin Routes */}
+                    <Route path="/admin" element={
+                      <ProtectedRoute adminOnly>
+                        <AdminDashboard />
+                      </ProtectedRoute>
+                    } />
+                  </Routes>
+                </Suspense>
+              </Layout>
+            </DataProvider>
+          </AuthProvider>
+        </ToastProvider>
+      </ErrorBoundary>
+    </Router>
   );
 }
 

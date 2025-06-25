@@ -1,13 +1,24 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
-import { TrendingUp, Shield, Clock, Users, ArrowRight, Star, CheckCircle } from 'lucide-react';
+import { TrendingUp, Shield, Clock, Users, ArrowRight, Star } from 'lucide-react';
+import Skeleton from '../components/SkeletonLoader';
 
 const HomePage: React.FC = () => {
-  const { user } = useAuth();
-  const { investmentPlans } = useData();
+  const { user, isLoading: authLoading } = useAuth();
+  const { investmentPlans, isLoading: dataLoading } = useData();
   const navigate = useNavigate();
+  const [pageLoading, setPageLoading] = useState(true);
+
+  // Control loading state with a small delay to prevent flickering
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setPageLoading(authLoading || dataLoading);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [authLoading, dataLoading]);
 
   // Redirect logged-in users to dashboard
   useEffect(() => {
@@ -26,6 +37,127 @@ const HomePage: React.FC = () => {
         </div>
       </div>
     );
+  }
+
+  // Home Page Skeleton UI
+  const HomePageSkeleton = () => (
+    <div className="min-h-screen">
+      {/* Hero Section Skeleton */}
+      <section className="relative py-20 px-4 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20"></div>
+        <div className="relative max-w-7xl mx-auto text-center">
+          <Skeleton height="4rem" width="70%" className="mx-auto mb-6" rounded />
+          <Skeleton height="1.5rem" width="80%" className="mx-auto mb-2" rounded />
+          <Skeleton height="1.5rem" width="60%" className="mx-auto mb-8" rounded />
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Skeleton height="3.5rem" width="10rem" className="mx-auto" rounded />
+            <Skeleton height="3.5rem" width="10rem" className="mx-auto" rounded />
+          </div>
+        </div>
+      </section>
+
+      {/* Stats Section Skeleton */}
+      <section className="py-16 px-4">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {Array(4).fill(0).map((_, i) => (
+              <div key={i} className="bg-slate-800/50 p-6 rounded-lg border border-slate-700/50">
+                <Skeleton height="2rem" width="60%" className="mb-2" rounded />
+                <Skeleton height="1.5rem" width="40%" className="mb-4" rounded />
+                <Skeleton height="1rem" width="100%" className="mb-2" rounded />
+                <Skeleton height="1rem" width="80%" rounded />
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Investment Plans Skeleton */}
+      <section className="py-16 px-4 bg-slate-900/50">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12">
+            <Skeleton height="2.5rem" width="50%" className="mx-auto mb-4" rounded />
+            <Skeleton height="1.5rem" width="70%" className="mx-auto" rounded />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {Array(3).fill(0).map((_, i) => (
+              <div key={i} className="bg-slate-800/50 p-6 rounded-xl border border-slate-700/50">
+                <Skeleton height="2rem" width="50%" className="mb-4" rounded />
+                <Skeleton height="1.5rem" width="30%" className="mb-2" rounded />
+                <Skeleton height="1rem" width="100%" className="mb-4" rounded />
+                <Skeleton height="1rem" width="90%" className="mb-2" rounded />
+                <Skeleton height="1rem" width="80%" className="mb-6" rounded />
+                <Skeleton height="3rem" width="100%" rounded />
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Features Skeleton */}
+      <section className="py-20 px-4 bg-slate-800/30">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <Skeleton height="2.5rem" width="40%" className="mx-auto mb-4" rounded />
+            <Skeleton height="1.5rem" width="60%" className="mx-auto" rounded />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {Array(4).fill(0).map((_, i) => (
+              <div key={i} className="text-center p-6 rounded-xl bg-slate-800/50 border border-slate-700/50">
+                <Skeleton height="4rem" width="4rem" className="mx-auto mb-4" circle />
+                <Skeleton height="1.5rem" width="60%" className="mx-auto mb-2" rounded />
+                <Skeleton height="1rem" width="90%" className="mx-auto" rounded />
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials Skeleton */}
+      <section className="py-20 px-4">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <Skeleton height="2.5rem" width="50%" className="mx-auto mb-4" rounded />
+            <Skeleton height="1.5rem" width="70%" className="mx-auto" rounded />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {Array(3).fill(0).map((_, i) => (
+              <div key={i} className="p-6 rounded-xl bg-slate-800/50 border border-slate-700/50">
+                <div className="flex items-center mb-4">
+                  {Array(5).fill(0).map((_, j) => (
+                    <Skeleton key={j} height="1.25rem" width="1.25rem" className="mr-1" />
+                  ))}
+                </div>
+                <Skeleton height="1rem" width="100%" className="mb-2" rounded />
+                <Skeleton height="1rem" width="90%" className="mb-2" rounded />
+                <Skeleton height="1rem" width="95%" className="mb-4" rounded />
+                <Skeleton height="1.25rem" width="40%" className="mb-1" rounded />
+                <Skeleton height="1rem" width="30%" rounded />
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section Skeleton */}
+      <section className="py-20 px-4 bg-gradient-to-r from-yellow-400/10 to-yellow-600/10">
+        <div className="max-w-4xl mx-auto text-center">
+          <Skeleton height="2.5rem" width="60%" className="mx-auto mb-4" rounded />
+          <Skeleton height="1.5rem" width="80%" className="mx-auto mb-8" rounded />
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Skeleton height="3.5rem" width="10rem" className="mx-auto" rounded />
+            <Skeleton height="3.5rem" width="10rem" className="mx-auto" rounded />
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+
+  if (pageLoading) {
+    return <HomePageSkeleton />;
   }
 
   const features = [
