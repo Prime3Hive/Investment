@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { LogIn, Eye, EyeOff, AlertCircle, Mail } from 'lucide-react';
+import { LogIn, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { login, user, session, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -23,7 +23,7 @@ const LoginPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setIsLoading(true);
+    setIsSubmitting(true);
 
     try {
       console.log('🔐 Login form submitted for:', email);
@@ -39,7 +39,7 @@ const LoginPage: React.FC = () => {
       console.error('❌ Login form error:', err);
       setError('An error occurred during login. Please try again.');
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -74,8 +74,8 @@ const LoginPage: React.FC = () => {
           <div className="mx-auto h-12 w-12 bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-lg flex items-center justify-center mb-4">
             <LogIn className="h-6 w-6 text-slate-900" />
           </div>
-          <h2 className="text-3xl font-bold text-white">Welcome back to Profitra</h2>
-          <p className="mt-2 text-slate-400">Sign in to your investment account</p>
+          <h2 className="text-3xl font-bold text-white">Welcome back</h2>
+          <p className="mt-2 text-slate-400">Sign in to your account</p>
         </div>
 
         <div className="bg-slate-800 rounded-lg p-8 border border-slate-700">
@@ -83,18 +83,7 @@ const LoginPage: React.FC = () => {
             <div className="mb-4 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
               <div className="flex items-start space-x-2">
                 <AlertCircle className="w-5 h-5 text-red-400 mt-0.5" />
-                <div>
-                  <span className="text-red-400 text-sm">{error}</span>
-                  {error.includes('email not verified') && (
-                    <div className="mt-2 text-xs text-red-300">
-                      <p>Haven't received the verification email?</p>
-                      <div className="flex items-center space-x-1 mt-1">
-                        <Mail className="w-3 h-3" />
-                        <span>Check your spam folder or contact support</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <span className="text-red-400 text-sm">{error}</span>
               </div>
             </div>
           )}
@@ -150,10 +139,10 @@ const LoginPage: React.FC = () => {
 
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isSubmitting}
               className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-slate-900 bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-500 hover:to-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
             >
-              {isLoading ? (
+              {isSubmitting ? (
                 <div className="flex items-center">
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-slate-900 mr-2"></div>
                   Signing in...

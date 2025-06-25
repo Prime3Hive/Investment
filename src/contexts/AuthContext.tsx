@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
 
@@ -48,56 +48,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [lastActivity, setLastActivity] = useState<number>(Date.now());
-  const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
-
-  // Track user activity
-  useEffect(() => {
-    if (!user) return; // Only track activity when user is logged in
-    
-    // Update last activity timestamp on user interactions
-    const updateActivity = () => setLastActivity(Date.now());
-    
-    // Events to track for activity
-    const events = ['mousedown', 'keypress', 'scroll', 'mousemove', 'touchstart'];
-    
-    // Add event listeners
-    events.forEach(event => {
-      window.addEventListener(event, updateActivity);
-    });
-    
-    // Check for inactivity every minute
-    const inactivityCheck = setInterval(() => {
-      const now = Date.now();
-      if (now - lastActivity > INACTIVITY_TIMEOUT) {
-        console.log('⏰ User inactive for 5 minutes, logging out');
-        logout();
-      }
-    }, 60000); // Check every minute
-    
-    // Cleanup
-    return () => {
-      events.forEach(event => {
-        window.removeEventListener(event, updateActivity);
-      });
-      clearInterval(inactivityCheck);
-    };
-  }, [user, lastActivity]); // Re-run when user or lastActivity changes
+  
+  // Use ref to track if component is mounted to prevent memory leaks
+  const mountedRef = useRef(true);
 
   useEffect(() => {
-    let mounted = true;
+    mountedRef.current = true;
 
     const initializeAuth = async () => {
       try {
         console.log('🔄 Initializing auth...');
         setError(null);
         
-        // Get current session first
+        // Get current session
         const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
           console.error('❌ Error getting session:', sessionError);
-          if (mounted) {
+          if (mountedRef.current) {
             setIsLoading(false);
           }
           return;
@@ -105,13 +73,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         console.log('📋 Current session:', currentSession ? 'Found' : 'None');
 
-        if (currentSession?.user?.email_confirmed_at) {
+        if (currentSession?.user?.email_confirmed_at && mountedRef.current) {
           console.log('✅ User has confirmed session, fetching profile...');
           setSession(currentSession);
           await fetchUserProfile(currentSession.user);
         } else {
           console.log('❌ No confirmed session found');
-          if (mounted) {
+          if (mountedRef.current) {
             setSession(null);
             setUser(null);
             setIsLoading(false);
@@ -119,16 +87,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       } catch (error) {
         console.error('❌ Error in initializeAuth:', error);
-        setError('Failed to initialize authentication');
-        if (mounted) setIsLoading(false);
+        if (mountedRef.current) {
+          setError('Failed to initialize authentication');
+          setIsLoading(false);
+        }
       }
     };
 
     initializeAuth();
 
-    // Listen for auth changes with proper cleanup
+    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!mounted) return;
+      if (!mountedRef.current) return;
 
       console.log('🔄 Auth state change:', event, session ? 'Session exists' : 'No session');
 
@@ -160,64 +130,58 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       } catch (error) {
         console.error('❌ Error in auth state change:', error);
-        setError('Authentication error occurred');
-        setIsLoading(false);
+        if (mountedRef.current) {
+          setError('Authentication error occurred');
+          setIsLoading(false);
+        }
       }
     });
 
     return () => {
-      mounted = false;
+      mountedRef.current = false;
       subscription.unsubscribe();
     };
   }, []);
 
   const fetchUserProfile = async (authUser: SupabaseUser) => {
+    if (!mountedRef.current) return;
+    
     try {
       console.log('📋 Fetching user profile for:', authUser.id);
       
-      // Add retry logic for profile fetching
-      let retries = 3;
-      let profile = null;
-      
-      while (retries > 0 && !profile) {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', authUser.id)
-          .single();
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .single();
 
-        if (error) {
-          if (error.code === 'PGRST116') {
-            // Profile not found, create it
-            console.log('📝 Profile not found, creating...');
-            await createUserProfile(authUser);
-            return;
-          } else {
-            retries--;
-            if (retries === 0) {
-              throw error;
-            }
-            console.log(`⚠️ Profile fetch failed, retrying... (${retries} left)`);
-            // Wait before retry
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // Profile not found, create it
+          console.log('📝 Profile not found, creating...');
+          await createUserProfile(authUser);
+          return;
         } else {
-          profile = data;
-          console.log('✅ Profile fetched successfully');
+          throw error;
         }
       }
 
-      if (profile) {
-        setUserFromProfile(profile, authUser);
+      if (data && mountedRef.current) {
+        console.log('✅ Profile fetched successfully');
+        setUserFromProfile(data, authUser);
       }
     } catch (error) {
       console.error('❌ Error fetching profile:', error);
-      setError('Failed to load user profile');
-      setIsLoading(false);
+      if (mountedRef.current) {
+        setError('Failed to load user profile');
+        setIsLoading(false);
+      }
     }
   };
 
   const createUserProfile = async (authUser: SupabaseUser) => {
+    if (!mountedRef.current) return;
+    
     try {
       console.log('📝 Creating user profile...');
       
@@ -240,16 +204,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         throw error;
       }
 
-      console.log('✅ Profile created successfully');
-      setUserFromProfile(profile, authUser);
+      if (profile && mountedRef.current) {
+        console.log('✅ Profile created successfully');
+        setUserFromProfile(profile, authUser);
+      }
     } catch (error) {
       console.error('❌ Error creating profile:', error);
-      setError('Failed to create user profile');
-      setIsLoading(false);
+      if (mountedRef.current) {
+        setError('Failed to create user profile');
+        setIsLoading(false);
+      }
     }
   };
 
   const setUserFromProfile = (profile: any, authUser: SupabaseUser) => {
+    if (!mountedRef.current) return;
+    
     try {
       console.log('👤 Setting user from profile...');
       
@@ -270,8 +240,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.log('✅ User set successfully:', userData.name);
     } catch (error) {
       console.error('❌ Error setting user from profile:', error);
-      setError('Failed to process user data');
-      setIsLoading(false);
+      if (mountedRef.current) {
+        setError('Failed to process user data');
+        setIsLoading(false);
+      }
     }
   };
 
@@ -299,28 +271,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return false;
       }
       
-      // Check if user is banned or deactivated
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('status')
-        .eq('id', data.user.id)
-        .single();
-      
-      if (profileError) {
-        console.error('Error fetching user profile:', profileError.message);
-        setError('Failed to verify account status');
-        return false;
-      }
-      
-      // If user is banned or deactivated, sign them out and return error
-      if (profile?.status === 'banned' || profile?.status === 'deactivated') {
-        await supabase.auth.signOut();
-        setError(profile.status === 'banned' 
-          ? 'Your account has been banned. Please contact support.'
-          : 'Your account has been deactivated. Please contact support.');
-        return false;
-      }
-      
       console.log('✅ Login successful');
       return true;
     } catch (error: any) {
@@ -328,7 +278,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setError(error.message || 'An error occurred during login');
       return false;
     } finally {
-      setIsLoading(false);
+      if (mountedRef.current) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -363,7 +315,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setError('An error occurred during registration');
       return false;
     } finally {
-      setIsLoading(false);
+      if (mountedRef.current) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -374,8 +328,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setUser(null);
       setSession(null);
       setError(null);
-      // Reset last activity when logging out
-      setLastActivity(Date.now());
       console.log('✅ Logout successful');
     } catch (error) {
       console.error('❌ Logout error:', error);
@@ -383,7 +335,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const updateProfile = async (userData: Partial<User>) => {
-    if (!user) return;
+    if (!user || !mountedRef.current) return;
 
     try {
       console.log('📝 Updating profile...');
@@ -404,13 +356,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         throw error;
       }
 
-      setUser(prev => prev ? { ...prev, ...userData } : null);
-      console.log('✅ Profile updated successfully');
+      if (mountedRef.current) {
+        setUser(prev => prev ? { ...prev, ...userData } : null);
+        console.log('✅ Profile updated successfully');
+      }
     } catch (error) {
       console.error('❌ Error updating profile:', error);
-      setError('Failed to update profile');
+      if (mountedRef.current) {
+        setError('Failed to update profile');
+      }
     }
   };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const value: AuthContextType = {
     user,

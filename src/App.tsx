@@ -42,6 +42,7 @@ function App() {
               <Layout>
                 <Suspense fallback={<LoadingSpinner />}>
                   <Routes>
+                    {/* Public Routes */}
                     <Route path="/" element={<HomePage />} />
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/register" element={<RegisterPage />} />
