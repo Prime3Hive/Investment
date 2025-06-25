@@ -1,83 +1,76 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { LogIn, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { LogIn, Eye, EyeOff, AlertCircle, TrendingUp } from 'lucide-react';
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { login, user, session, isLoading: authLoading } = useAuth();
+  const { login, user, session, isLoading, error } = useAuth();
   const navigate = useNavigate();
 
-  // Redirect if user is already logged in
   useEffect(() => {
-    if (user && session && !authLoading) {
-      console.log('🔄 User already logged in, redirecting to dashboard');
+    if (user && session && !isLoading) {
       navigate('/dashboard', { replace: true });
     }
-  }, [user, session, authLoading, navigate]);
+  }, [user, session, isLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     setIsSubmitting(true);
 
     try {
-      console.log('🔐 Login form submitted for:', email);
       const success = await login(email, password);
-      
       if (success) {
-        console.log('✅ Login successful, user will be redirected by useEffect');
-        // Don't navigate here - let the useEffect handle it when user state updates
-      } else {
-        setError('Invalid email or password, or email not verified. Please check your credentials and ensure your email is verified.');
+        // Navigation will be handled by useEffect
       }
     } catch (err) {
-      console.error('❌ Login form error:', err);
-      setError('An error occurred during login. Please try again.');
+      console.error('Login error:', err);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Show loading state while authenticating
-  if (authLoading) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className="min-h-screen flex items-center justify-center bg-slate-900">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
-          <p className="text-slate-400">Checking authentication...</p>
+          <p className="text-slate-400">Loading...</p>
         </div>
       </div>
     );
   }
 
-  // Don't render login form if user is already authenticated
   if (user && session) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className="min-h-screen flex items-center justify-center bg-slate-900">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
-          <p className="text-slate-400">Redirecting to dashboard...</p>
+          <p className="text-slate-400">Redirecting...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center py-12 px-4 bg-slate-900">
       <div className="max-w-md w-full space-y-8">
+        {/* Header */}
         <div className="text-center">
-          <div className="mx-auto h-12 w-12 bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-lg flex items-center justify-center mb-4">
-            <LogIn className="h-6 w-6 text-slate-900" />
-          </div>
+          <Link to="/" className="inline-flex items-center space-x-2 mb-6">
+            <div className="w-8 h-8 bg-yellow-400 rounded-lg flex items-center justify-center">
+              <TrendingUp className="w-5 h-5 text-slate-900" />
+            </div>
+            <span className="text-xl font-bold text-white">Profitra</span>
+          </Link>
           <h2 className="text-3xl font-bold text-white">Welcome back</h2>
           <p className="mt-2 text-slate-400">Sign in to your account</p>
         </div>
 
+        {/* Form */}
         <div className="bg-slate-800 rounded-lg p-8 border border-slate-700">
           {error && (
             <div className="mb-4 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
@@ -99,7 +92,7 @@ const LoginPage: React.FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+                className="mt-1 block w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
                 placeholder="Enter your email"
               />
             </div>
@@ -115,7 +108,7 @@ const LoginPage: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="block w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent pr-10"
+                  className="block w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 pr-10"
                   placeholder="Enter your password"
                 />
                 <button
@@ -128,22 +121,13 @@ const LoginPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <Link
-                to="/forgot-password"
-                className="text-sm text-yellow-400 hover:text-yellow-300 transition-colors"
-              >
-                Forgot your password?
-              </Link>
-            </div>
-
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-slate-900 bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-500 hover:to-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
+              className="w-full py-3 px-4 bg-yellow-400 text-slate-900 font-semibold rounded-lg hover:bg-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-400 disabled:opacity-50 transition-colors"
             >
               {isSubmitting ? (
-                <div className="flex items-center">
+                <div className="flex items-center justify-center">
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-slate-900 mr-2"></div>
                   Signing in...
                 </div>
