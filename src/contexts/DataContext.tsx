@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 
@@ -104,6 +104,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Use ref to track if component is mounted
+  const mountedRef = useRef(true);
 
   // Cache to prevent unnecessary refetches
   const [dataCache, setDataCache] = useState<{
@@ -142,24 +145,25 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     throw lastError || new Error('Operation failed after retries');
   };
   
+  // Initialize data when component mounts or user changes
   useEffect(() => {
-    let mounted = true;
+    mountedRef.current = true;
     let loadingTimer: ReturnType<typeof setTimeout>;
     
     const initializeData = async () => {
-      if (!mounted) return;
+      if (!mountedRef.current) return;
       
       try {
+        console.log('🔄 Initializing data context...');
         setIsLoading(true);
         setError(null);
         
         const now = Date.now();
         
         // Set a minimum loading time to prevent flickering
-        // Increased to 2000ms to ensure UI is stable
         loadingTimer = setTimeout(() => {
-          if (mounted) setIsLoading(false);
-        }, 2000);
+          if (mountedRef.current) setIsLoading(false);
+        }, 1000);
         
         // Initialize empty arrays to prevent rendering errors
         setInvestmentPlans([]);
@@ -169,11 +173,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setWithdrawalRequests([]);
         
         // Step 1: Always fetch investment plans (public data) first
-        // Check cache first
         try {
           if (!dataCache.investmentPlans || (now - (dataCache.investmentPlans || 0) > CACHE_DURATION)) {
-            await retryOperation(() => fetchInvestmentPlans(), 5, 1000); // More retries, longer delay
-            setDataCache(prev => ({ ...prev, investmentPlans: now }));
+            await retryOperation(() => fetchInvestmentPlans(), 3, 1000);
+            if (mountedRef.current) {
+              setDataCache(prev => ({ ...prev, investmentPlans: now }));
+            }
           }
         } catch (err) {
           console.error('Failed to fetch investment plans:', err);
@@ -181,75 +186,86 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
         
         // Only fetch user-specific data if logged in
-        if (user) {
+        if (user && mountedRef.current) {
+          console.log('👤 User found, fetching user-specific data...');
+          
           // Step 2: Fetch critical data first - investments
           try {
             if (!dataCache.investments || (now - (dataCache.investments || 0) > CACHE_DURATION)) {
-              await retryOperation(() => fetchInvestments(), 5, 1000);
-              setDataCache(prev => ({ ...prev, investments: now }));
+              await retryOperation(() => fetchInvestments(), 3, 1000);
+              if (mountedRef.current) {
+                setDataCache(prev => ({ ...prev, investments: now }));
+              }
             }
           } catch (err) {
             console.error('Failed to fetch investments:', err);
-            // Don't throw, continue with other data
           }
           
           // Step 3: Fetch transactions with a small delay
           try {
             if (!dataCache.transactions || (now - (dataCache.transactions || 0) > CACHE_DURATION)) {
-              await new Promise(resolve => setTimeout(resolve, 500)); // Increased delay
-              await retryOperation(() => fetchTransactions(), 5, 1000);
-              setDataCache(prev => ({ ...prev, transactions: now }));
+              await new Promise(resolve => setTimeout(resolve, 300));
+              if (mountedRef.current) {
+                await retryOperation(() => fetchTransactions(), 3, 1000);
+                setDataCache(prev => ({ ...prev, transactions: now }));
+              }
             }
           } catch (err) {
             console.error('Failed to fetch transactions:', err);
-            // Don't throw, continue with other data
           }
           
           // Step 4: Fetch remaining data with delays between calls
           try {
             if (!dataCache.deposits || (now - (dataCache.deposits || 0) > CACHE_DURATION)) {
-              await new Promise(resolve => setTimeout(resolve, 500)); // Increased delay
-              await retryOperation(() => fetchDepositRequests(), 5, 1000);
-              setDataCache(prev => ({ ...prev, deposits: now }));
+              await new Promise(resolve => setTimeout(resolve, 300));
+              if (mountedRef.current) {
+                await retryOperation(() => fetchDepositRequests(), 3, 1000);
+                setDataCache(prev => ({ ...prev, deposits: now }));
+              }
             }
           } catch (err) {
             console.error('Failed to fetch deposits:', err);
-            // Don't throw, continue with other data
           }
           
           try {
             if (!dataCache.withdrawals || (now - (dataCache.withdrawals || 0) > CACHE_DURATION)) {
-              await new Promise(resolve => setTimeout(resolve, 500)); // Increased delay
-              await retryOperation(() => fetchWithdrawalRequests(), 5, 1000);
-              setDataCache(prev => ({ ...prev, withdrawals: now }));
+              await new Promise(resolve => setTimeout(resolve, 300));
+              if (mountedRef.current) {
+                await retryOperation(() => fetchWithdrawalRequests(), 3, 1000);
+                setDataCache(prev => ({ ...prev, withdrawals: now }));
+              }
             }
           } catch (err) {
             console.error('Failed to fetch withdrawals:', err);
-            // Don't throw, continue with other data
           }
         }
+        
+        console.log('✅ Data initialization complete');
       } catch (error) {
-        console.error(' Error initializing data:', error);
-        setError('Failed to load data. Please refresh the page.');
+        console.error('❌ Error initializing data:', error);
+        if (mountedRef.current) {
+          setError('Failed to load data. Please refresh the page.');
+        }
       } finally {
         // Clear the loading timer if it hasn't fired yet
         if (loadingTimer) clearTimeout(loadingTimer);
-        if (mounted) setIsLoading(false);
+        if (mountedRef.current) setIsLoading(false);
       }
     };
     
     initializeData();
     
     return () => {
-      mounted = false;
+      mountedRef.current = false;
       if (loadingTimer) clearTimeout(loadingTimer);
     };
   }, [user?.id]); // Only depend on user ID to prevent unnecessary refetches
 
   const refreshData = async (specificData?: string[]) => {
-    if (!mounted) return;
+    if (!mountedRef.current) return;
     
     try {
+      console.log('🔄 Refreshing data...', specificData || 'all');
       setIsLoading(true);
       setError(null);
       
@@ -259,27 +275,39 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (specificData && specificData.length > 0) {
         // Stagger API calls to avoid rate limiting
         for (const dataType of specificData) {
+          if (!mountedRef.current) break;
+          
           try {
             switch (dataType) {
               case 'investmentPlans':
-                await retryOperation(() => fetchInvestmentPlans(), 5, 1000);
-                setDataCache(prev => ({ ...prev, investmentPlans: now }));
+                await retryOperation(() => fetchInvestmentPlans(), 3, 1000);
+                if (mountedRef.current) {
+                  setDataCache(prev => ({ ...prev, investmentPlans: now }));
+                }
                 break;
               case 'investments':
-                await retryOperation(() => fetchInvestments(), 5, 1000);
-                setDataCache(prev => ({ ...prev, investments: now }));
+                await retryOperation(() => fetchInvestments(), 3, 1000);
+                if (mountedRef.current) {
+                  setDataCache(prev => ({ ...prev, investments: now }));
+                }
                 break;
               case 'deposits':
-                await retryOperation(() => fetchDepositRequests(), 5, 1000);
-                setDataCache(prev => ({ ...prev, deposits: now }));
+                await retryOperation(() => fetchDepositRequests(), 3, 1000);
+                if (mountedRef.current) {
+                  setDataCache(prev => ({ ...prev, deposits: now }));
+                }
                 break;
               case 'withdrawals':
-                await retryOperation(() => fetchWithdrawalRequests(), 5, 1000);
-                setDataCache(prev => ({ ...prev, withdrawals: now }));
+                await retryOperation(() => fetchWithdrawalRequests(), 3, 1000);
+                if (mountedRef.current) {
+                  setDataCache(prev => ({ ...prev, withdrawals: now }));
+                }
                 break;
               case 'transactions':
-                await retryOperation(() => fetchTransactions(), 5, 1000);
-                setDataCache(prev => ({ ...prev, transactions: now }));
+                await retryOperation(() => fetchTransactions(), 3, 1000);
+                if (mountedRef.current) {
+                  setDataCache(prev => ({ ...prev, transactions: now }));
+                }
                 break;
               default:
                 break;
@@ -289,23 +317,88 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             // Continue with other data types even if one fails
           }
           
-          // Add a larger delay between API calls to avoid rate limiting
-          await new Promise(resolve => setTimeout(resolve, 800));
+          // Add a delay between API calls to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
       } else {
-        // Refresh all data with the improved initializeData function
+        // Refresh all data by re-running initialization
+        const initializeData = async () => {
+          const now = Date.now();
+          
+          // Reset cache to force refresh
+          setDataCache({});
+          
+          try {
+            await retryOperation(() => fetchInvestmentPlans(), 3, 1000);
+            if (mountedRef.current) {
+              setDataCache(prev => ({ ...prev, investmentPlans: now }));
+            }
+          } catch (err) {
+            console.error('Failed to refresh investment plans:', err);
+          }
+          
+          if (user && mountedRef.current) {
+            try {
+              await retryOperation(() => fetchInvestments(), 3, 1000);
+              if (mountedRef.current) {
+                setDataCache(prev => ({ ...prev, investments: now }));
+              }
+            } catch (err) {
+              console.error('Failed to refresh investments:', err);
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
+            try {
+              await retryOperation(() => fetchTransactions(), 3, 1000);
+              if (mountedRef.current) {
+                setDataCache(prev => ({ ...prev, transactions: now }));
+              }
+            } catch (err) {
+              console.error('Failed to refresh transactions:', err);
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
+            try {
+              await retryOperation(() => fetchDepositRequests(), 3, 1000);
+              if (mountedRef.current) {
+                setDataCache(prev => ({ ...prev, deposits: now }));
+              }
+            } catch (err) {
+              console.error('Failed to refresh deposits:', err);
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
+            try {
+              await retryOperation(() => fetchWithdrawalRequests(), 3, 1000);
+              if (mountedRef.current) {
+                setDataCache(prev => ({ ...prev, withdrawals: now }));
+              }
+            } catch (err) {
+              console.error('Failed to refresh withdrawals:', err);
+            }
+          }
+        };
+        
         await initializeData();
       }
+      
+      console.log('✅ Data refresh complete');
     } catch (error) {
-      console.error(' Error refreshing data:', error);
-      setError('Failed to refresh data. Please try again.');
+      console.error('❌ Error refreshing data:', error);
+      if (mountedRef.current) {
+        setError('Failed to refresh data. Please try again.');
+      }
     } finally {
-      if (mounted) setIsLoading(false);
+      if (mountedRef.current) setIsLoading(false);
     }
   };
 
   const fetchInvestmentPlans = async () => {
     try {
+      console.log('📋 Fetching investment plans...');
       const { data, error } = await supabase
         .from('investment_plans')
         .select('id, name, min_amount, max_amount, roi, duration_hours, description, is_active')
@@ -325,7 +418,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isActive: plan.is_active
       }));
 
-      setInvestmentPlans(plans);
+      if (mountedRef.current) {
+        setInvestmentPlans(plans);
+        console.log('✅ Investment plans fetched:', plans.length);
+      }
     } catch (error) {
       console.error('❌ Error fetching investment plans:', error);
       throw error;
@@ -336,8 +432,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!user) return;
 
     try {
-      // For regular users, only fetch active investments first for faster loading
-      // and limit to 20 for better performance
+      console.log('📋 Fetching investments...');
       const { data, error } = await supabase
         .from('investments')
         .select(`
@@ -371,7 +466,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       }));
 
-      setInvestments(userInvestments);
+      if (mountedRef.current) {
+        setInvestments(userInvestments);
+        console.log('✅ Investments fetched:', userInvestments.length);
+      }
     } catch (error) {
       console.error('❌ Error fetching investments:', error);
       throw error;
@@ -382,7 +480,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!user) return;
 
     try {
-      // Only select necessary fields for regular users
+      console.log('📋 Fetching deposit requests...');
       let query;
       
       if (user.isAdmin) {
@@ -395,7 +493,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           .order('created_at', { ascending: false })
           .limit(50);
       } else {
-        // For regular users, we don't need the profiles join
         query = supabase
           .from('deposit_requests')
           .select('id, user_id, amount, currency, wallet_address, status, created_at')
@@ -419,7 +516,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         userName: user.isAdmin ? (deposit.profiles?.name || 'Unknown') : user.name || 'Unknown'
       }));
 
-      setDepositRequests(deposits);
+      if (mountedRef.current) {
+        setDepositRequests(deposits);
+        console.log('✅ Deposit requests fetched:', deposits.length);
+      }
     } catch (error) {
       console.error('❌ Error fetching deposit requests:', error);
       throw error;
@@ -430,7 +530,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!user) return;
 
     try {
-      // Only select necessary fields for regular users
+      console.log('📋 Fetching withdrawal requests...');
       let query;
       
       if (user.isAdmin) {
@@ -443,7 +543,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           .order('created_at', { ascending: false })
           .limit(50);
       } else {
-        // For regular users, we don't need the profiles join
         query = supabase
           .from('withdrawal_requests')
           .select('id, user_id, amount, currency, wallet_address, status, created_at')
@@ -467,7 +566,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         userName: user.isAdmin ? (withdrawal.profiles?.name || 'Unknown') : user.name || 'Unknown'
       }));
 
-      setWithdrawalRequests(withdrawals);
+      if (mountedRef.current) {
+        setWithdrawalRequests(withdrawals);
+        console.log('✅ Withdrawal requests fetched:', withdrawals.length);
+      }
     } catch (error) {
       console.error('❌ Error fetching withdrawal requests:', error);
       throw error;
@@ -478,7 +580,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!user) return;
 
     try {
-      // Only select necessary fields and limit to 10 for dashboard
+      console.log('📋 Fetching transactions...');
       let query = supabase
         .from('transactions')
         .select('id, user_id, type, amount, status, created_at, description');
@@ -489,7 +591,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       const { data, error } = await query
         .order('created_at', { ascending: false })
-        .limit(10); // Reduced limit for faster dashboard loading
+        .limit(10);
 
       if (error) throw error;
 
@@ -503,7 +605,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         description: transaction.description
       }));
 
-      setTransactions(userTransactions);
+      if (mountedRef.current) {
+        setTransactions(userTransactions);
+        console.log('✅ Transactions fetched:', userTransactions.length);
+      }
     } catch (error) {
       console.error('❌ Error fetching transactions:', error);
       throw error;
@@ -511,11 +616,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const updateInvestmentPlans = async (plans: InvestmentPlan[]) => {
-    setInvestmentPlans(plans);
+    if (mountedRef.current) {
+      setInvestmentPlans(plans);
+    }
   };
 
   const createInvestment = async (planId: string, amount: number, userId: string): Promise<boolean> => {
     try {
+      console.log('💰 Creating investment...');
       const plan = investmentPlans.find(p => p.id === planId);
       if (!plan || amount < plan.minAmount || amount > plan.maxAmount) {
         throw new Error('Invalid plan or amount');
@@ -561,6 +669,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (balanceError) throw balanceError;
 
       await refreshData();
+      console.log('✅ Investment created successfully');
       return true;
     } catch (error) {
       console.error('❌ Error creating investment:', error);
@@ -570,6 +679,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const createDepositRequest = async (userId: string, amount: number, currency: 'BTC' | 'USDT') => {
     try {
+      console.log('💳 Creating deposit request...');
       const { error: depositError } = await supabase
         .from('deposit_requests')
         .insert({
@@ -597,6 +707,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       await refreshData();
+      console.log('✅ Deposit request created successfully');
     } catch (error) {
       console.error('❌ Error creating deposit request:', error);
       throw error;
@@ -605,6 +716,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const createWithdrawalRequest = async (userId: string, amount: number, currency: 'BTC' | 'USDT', walletAddress: string) => {
     try {
+      console.log('💸 Creating withdrawal request...');
       const { error: withdrawalError } = await supabase
         .from('withdrawal_requests')
         .insert({
@@ -632,6 +744,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       await refreshData();
+      console.log('✅ Withdrawal request created successfully');
     } catch (error) {
       console.error('❌ Error creating withdrawal request:', error);
       throw error;
@@ -640,6 +753,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const updateDepositStatus = async (depositId: string, status: 'pending' | 'confirmed' | 'rejected', userId: string) => {
     try {
+      console.log('📝 Updating deposit status...');
       // Update deposit status
       const { error: updateError } = await supabase
         .from('deposit_requests')
@@ -682,6 +796,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       await refreshData();
+      console.log('✅ Deposit status updated successfully');
     } catch (error) {
       console.error('❌ Error updating deposit status:', error);
       throw error;
@@ -690,6 +805,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const updateWithdrawalStatus = async (withdrawalId: string, status: 'pending' | 'approved' | 'completed' | 'rejected', userId: string) => {
     try {
+      console.log('📝 Updating withdrawal status...');
       // Update withdrawal status
       const { error: updateError } = await supabase
         .from('withdrawal_requests')
@@ -737,6 +853,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       await refreshData();
+      console.log('✅ Withdrawal status updated successfully');
     } catch (error) {
       console.error('❌ Error updating withdrawal status:', error);
       throw error;
@@ -753,14 +870,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const getAllUsers = async () => {
     try {
+      console.log('👥 Fetching all users...');
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(1000); // Reasonable limit
+        .limit(1000);
 
       if (error) throw error;
 
+      console.log('✅ All users fetched:', data.length);
       return data.map(profile => ({
         id: profile.id,
         name: profile.name,
@@ -780,12 +899,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const updateUserBalance = async (userId: string, amount: number) => {
     try {
+      console.log('💰 Updating user balance...');
       const { error } = await supabase.rpc('update_user_balance', {
         user_id: userId,
         amount_change: amount
       });
 
       if (error) throw error;
+      console.log('✅ User balance updated successfully');
     } catch (error) {
       console.error('❌ Error updating user balance:', error);
       throw error;
@@ -794,6 +915,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const updateUserStatus = async (userId: string, status: 'active' | 'deactivated' | 'banned') => {
     try {
+      console.log('📝 Updating user status...');
       const { error } = await supabase.rpc('update_user_status', {
         user_id: userId,
         new_status: status
@@ -803,11 +925,19 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       // Refresh user data after status change
       await refreshData();
+      console.log('✅ User status updated successfully');
     } catch (error) {
       console.error('❌ Error updating user status:', error);
       throw error;
     }
   };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const value: DataContextType = {
     investmentPlans,
