@@ -17,7 +17,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [layoutLoading, setLayoutLoading] = useState(true);
   
-  // Control loading state with a small delay to prevent flickering
+  // Control loading state with a delay to prevent flickering
   useEffect(() => {
     // Only show skeleton for initial app load, not for subsequent data fetches
     if (layoutLoading) {
@@ -29,14 +29,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     }
   }, [layoutLoading]);
   
-  // Update layout loading state based on auth and data loading states
+  // Update layout loading state based on auth loading state
   useEffect(() => {
-    // If both auth and data are done loading but layout is still showing as loading,
+    // If auth is done loading but layout is still showing as loading,
     // we can safely end the layout loading state
-    if (!authLoading && !dataLoading && layoutLoading) {
+    if (!authLoading && layoutLoading) {
       setLayoutLoading(false);
     }
-  }, [authLoading, dataLoading, layoutLoading]);
+  }, [authLoading, layoutLoading]);
 
   const handleLogout = async () => {
     await logout();
@@ -128,7 +128,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     </div>
   );
   
-  // Show skeleton during initial load
+  // Show skeleton during initial load only
   if (layoutLoading) {
     return <LayoutSkeleton />;
   }

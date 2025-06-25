@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { LogIn, Eye, EyeOff, AlertCircle, Mail } from 'lucide-react';
@@ -9,16 +9,16 @@ const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login, user, isLoading: authLoading } = useAuth();
+  const { login, user, session, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
 
   // Redirect if user is already logged in
-  React.useEffect(() => {
-    if (user && !authLoading) {
+  useEffect(() => {
+    if (user && session && !authLoading) {
       console.log('🔄 User already logged in, redirecting to dashboard');
-      navigate('/dashboard');
+      navigate('/dashboard', { replace: true });
     }
-  }, [user, authLoading, navigate]);
+  }, [user, session, authLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +30,7 @@ const LoginPage: React.FC = () => {
       const success = await login(email, password);
       
       if (success) {
-        console.log('✅ Login successful, waiting for user state update...');
+        console.log('✅ Login successful, user will be redirected by useEffect');
         // Don't navigate here - let the useEffect handle it when user state updates
       } else {
         setError('Invalid email or password, or email not verified. Please check your credentials and ensure your email is verified.');
@@ -46,10 +46,22 @@ const LoginPage: React.FC = () => {
   // Show loading state while authenticating
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
-          <p className="text-slate-400">Signing you in...</p>
+          <p className="text-slate-400">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render login form if user is already authenticated
+  if (user && session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
+          <p className="text-slate-400">Redirecting to dashboard...</p>
         </div>
       </div>
     );

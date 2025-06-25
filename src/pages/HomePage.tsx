@@ -22,15 +22,16 @@ const HomePage: React.FC = () => {
 
   // Redirect logged-in users to dashboard
   useEffect(() => {
-    if (user) {
-      navigate('/dashboard');
+    if (user && !authLoading) {
+      console.log('🔄 User is logged in, redirecting to dashboard');
+      navigate('/dashboard', { replace: true });
     }
-  }, [user, navigate]);
+  }, [user, authLoading, navigate]);
 
   // Don't render homepage content if user is logged in
-  if (user) {
+  if (user && !authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
           <p className="text-slate-400">Redirecting to dashboard...</p>
