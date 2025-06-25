@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
 import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
+import { toast } from 'react-toastify';
 
 interface User {
   id: string;
@@ -8,7 +9,8 @@ interface User {
   email: string;
   balance: number;
   isAdmin: boolean;
-  emailConfirmed: boolean;
+  btcWallet: string;
+  usdtWallet: string;
 }
 
 interface AuthContextType {
@@ -17,6 +19,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<boolean>;
   register: (userData: RegisterData) => Promise<boolean>;
   logout: () => void;
+  updateProfile: (data: Partial<User>) => Promise<void>;
   isLoading: boolean;
   error: string | null;
 }
@@ -44,74 +47,33 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const mountedRef = useRef(true);
 
   useEffect(() => {
-    mountedRef.current = true;
-
-    const initializeAuth = async () => {
-      try {
-        setError(null);
-        
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
-        
-        if (currentSession?.user?.email_confirmed_at && mountedRef.current) {
-          setSession(currentSession);
-          await fetchUserProfile(currentSession.user);
-        } else {
-          if (mountedRef.current) {
-            setSession(null);
-            setUser(null);
-            setIsLoading(false);
-          }
-        }
-      } catch (error) {
-        console.error('Auth initialization error:', error);
-        if (mountedRef.current) {
-          setError('Failed to initialize authentication');
-          setIsLoading(false);
-        }
-      }
-    };
-
-    initializeAuth();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!mountedRef.current) return;
-
-      try {
-        setError(null);
-        
-        if (event === 'SIGNED_IN' && session?.user?.email_confirmed_at) {
-          setSession(session);
-          await fetchUserProfile(session.user);
-        } else if (event === 'SIGNED_OUT') {
-          setSession(null);
-          setUser(null);
-          setIsLoading(false);
-        } else {
-          setSession(null);
-          setUser(null);
-          setIsLoading(false);
-        }
-      } catch (error) {
-        console.error('Auth state change error:', error);
-        if (mountedRef.current) {
-          setError('Authentication error occurred');
-          setIsLoading(false);
-        }
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session?.user) {
+        fetchUserProfile(session.user);
+      } else {
+        setIsLoading(false);
       }
     });
 
-    return () => {
-      mountedRef.current = false;
-      subscription.unsubscribe();
-    };
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setSession(session);
+      if (session?.user) {
+        await fetchUserProfile(session.user);
+      } else {
+        setUser(null);
+        setIsLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const fetchUserProfile = async (authUser: SupabaseUser) => {
-    if (!mountedRef.current) return;
-    
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -121,140 +83,114 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (error) {
         if (error.code === 'PGRST116') {
+          // Profile doesn't exist, create it
           await createUserProfile(authUser);
           return;
-        } else {
-          throw error;
         }
+        throw error;
       }
 
-      if (data && mountedRef.current) {
-        const userData: User = {
-          id: data.id,
-          name: data.name || 'User',
-          email: authUser.email || '',
-          balance: parseFloat(data.balance) || 0,
-          isAdmin: data.is_admin || false,
-          emailConfirmed: !!authUser.email_confirmed_at
-        };
-        
-        setUser(userData);
-        setIsLoading(false);
-      }
+      setUser({
+        id: data.id,
+        name: data.name,
+        email: authUser.email || '',
+        balance: data.balance,
+        isAdmin: data.is_admin,
+        btcWallet: data.btc_wallet,
+        usdtWallet: data.usdt_wallet,
+      });
     } catch (error) {
       console.error('Error fetching profile:', error);
-      if (mountedRef.current) {
-        setError('Failed to load user profile');
-        setIsLoading(false);
-      }
+      setError('Failed to load user profile');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const createUserProfile = async (authUser: SupabaseUser) => {
-    if (!mountedRef.current) return;
-    
     try {
-      const profileData = {
-        id: authUser.id,
-        name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
-        btc_wallet: authUser.user_metadata?.btc_wallet || '',
-        usdt_wallet: authUser.user_metadata?.usdt_wallet || '',
-        balance: 0,
-        is_admin: false
-      };
-
-      const { data: profile, error } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
-        .insert(profileData)
+        .insert({
+          id: authUser.id,
+          name: authUser.user_metadata?.name || 'User',
+          btc_wallet: authUser.user_metadata?.btc_wallet || '',
+          usdt_wallet: authUser.user_metadata?.usdt_wallet || '',
+          balance: 0,
+          is_admin: false,
+        })
         .select()
         .single();
 
       if (error) throw error;
 
-      if (profile && mountedRef.current) {
-        const userData: User = {
-          id: profile.id,
-          name: profile.name || 'User',
-          email: authUser.email || '',
-          balance: parseFloat(profile.balance) || 0,
-          isAdmin: profile.is_admin || false,
-          emailConfirmed: !!authUser.email_confirmed_at
-        };
-        
-        setUser(userData);
-        setIsLoading(false);
-      }
+      setUser({
+        id: data.id,
+        name: data.name,
+        email: authUser.email || '',
+        balance: data.balance,
+        isAdmin: data.is_admin,
+        btcWallet: data.btc_wallet,
+        usdtWallet: data.usdt_wallet,
+      });
     } catch (error) {
       console.error('Error creating profile:', error);
-      if (mountedRef.current) {
-        setError('Failed to create user profile');
-        setIsLoading(false);
-      }
+      setError('Failed to create user profile');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      setIsLoading(true);
       setError(null);
-      
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
         setError(error.message);
+        toast.error(error.message);
         return false;
       }
 
-      if (!data.user?.email_confirmed_at) {
-        await supabase.auth.signOut();
-        setError('Please verify your email before logging in.');
-        return false;
-      }
-      
+      toast.success('Login successful!');
       return true;
     } catch (error: any) {
-      setError(error.message || 'Login failed');
+      setError(error.message);
+      toast.error(error.message);
       return false;
-    } finally {
-      if (mountedRef.current) {
-        setIsLoading(false);
-      }
     }
   };
 
   const register = async (userData: RegisterData): Promise<boolean> => {
     try {
       setError(null);
-      setIsLoading(true);
-      
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email: userData.email,
         password: userData.password,
         options: {
           data: {
             name: userData.name,
             btc_wallet: userData.btcWallet,
-            usdt_wallet: userData.usdtWallet
-          }
-        }
+            usdt_wallet: userData.usdtWallet,
+          },
+        },
       });
 
       if (error) {
         setError(error.message);
+        toast.error(error.message);
         return false;
       }
 
-      return !!data.user;
-    } catch (error) {
-      setError('Registration failed');
+      toast.success('Registration successful! Please check your email to verify your account.');
+      return true;
+    } catch (error: any) {
+      setError(error.message);
+      toast.error(error.message);
       return false;
-    } finally {
-      if (mountedRef.current) {
-        setIsLoading(false);
-      }
     }
   };
 
@@ -264,16 +200,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setUser(null);
       setSession(null);
       setError(null);
+      toast.success('Logged out successfully');
     } catch (error) {
       console.error('Logout error:', error);
     }
   };
 
-  useEffect(() => {
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
+  const updateProfile = async (data: Partial<User>) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          name: data.name,
+          btc_wallet: data.btcWallet,
+          usdt_wallet: data.usdtWallet,
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      setUser({ ...user, ...data });
+      toast.success('Profile updated successfully');
+    } catch (error: any) {
+      toast.error('Failed to update profile');
+      console.error('Update profile error:', error);
+    }
+  };
 
   const value: AuthContextType = {
     user,
@@ -281,13 +235,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     login,
     register,
     logout,
+    updateProfile,
     isLoading,
-    error
+    error,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

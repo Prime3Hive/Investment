@@ -3,19 +3,19 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { LogIn, Eye, EyeOff, AlertCircle, TrendingUp } from 'lucide-react';
 
-const LoginPage: React.FC = () => {
+const SignInPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { login, user, session, isLoading, error } = useAuth();
+  const { login, user, isLoading, error } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user && session && !isLoading) {
+    if (user && !isLoading) {
       navigate('/dashboard', { replace: true });
     }
-  }, [user, session, isLoading, navigate]);
+  }, [user, isLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,7 +24,7 @@ const LoginPage: React.FC = () => {
     try {
       const success = await login(email, password);
       if (success) {
-        // Navigation will be handled by useEffect
+        navigate('/dashboard');
       }
     } catch (err) {
       console.error('Login error:', err);
@@ -44,17 +44,6 @@ const LoginPage: React.FC = () => {
     );
   }
 
-  if (user && session) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
-          <p className="text-slate-400">Redirecting...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen flex items-center justify-center py-12 px-4 bg-slate-900">
       <div className="max-w-md w-full space-y-8">
@@ -67,7 +56,7 @@ const LoginPage: React.FC = () => {
             <span className="text-xl font-bold text-white">Profitra</span>
           </Link>
           <h2 className="text-3xl font-bold text-white">Welcome back</h2>
-          <p className="mt-2 text-slate-400">Sign in to your account</p>
+          <p className="mt-2 text-slate-400">Sign in to your investment account</p>
         </div>
 
         {/* Form */}
@@ -132,7 +121,7 @@ const LoginPage: React.FC = () => {
                   Signing in...
                 </div>
               ) : (
-                'Sign in'
+                'Sign In'
               )}
             </button>
           </form>
@@ -140,7 +129,7 @@ const LoginPage: React.FC = () => {
           <div className="mt-6 text-center">
             <p className="text-slate-400">
               Don't have an account?{' '}
-              <Link to="/register" className="text-yellow-400 hover:text-yellow-300 transition-colors">
+              <Link to="/signup" className="text-yellow-400 hover:text-yellow-300 transition-colors">
                 Sign up
               </Link>
             </p>
@@ -151,4 +140,4 @@ const LoginPage: React.FC = () => {
   );
 };
 
-export default LoginPage;
+export default SignInPage;

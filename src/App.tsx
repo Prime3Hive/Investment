@@ -1,99 +1,56 @@
-import React, { Suspense } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
 import { AuthProvider } from './contexts/AuthContext';
-import { DataProvider } from './contexts/DataContext';
-import { ToastProvider } from './contexts/ToastContext';
-import ErrorBoundary from './components/ErrorBoundary';
+import { InvestmentProvider } from './contexts/InvestmentContext';
 import Layout from './components/Layout';
-import HomePage from './pages/HomePage';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import ForgotPasswordPage from './pages/ForgotPasswordPage';
-import UserDashboard from './pages/UserDashboard';
-import InvestmentPlans from './pages/InvestmentPlans';
-import DepositPage from './pages/DepositPage';
-import WithdrawPage from './pages/WithdrawPage';
-import ProfilePage from './pages/ProfilePage';
-import AboutPage from './pages/AboutPage';
-import ContactPage from './pages/ContactPage';
-import TermsPage from './pages/TermsPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
-// Lazy load admin dashboard for better performance
-const AdminDashboard = React.lazy(() => import('./pages/AdminDashboard'));
-
-// Loading component with better UX
-const LoadingSpinner = () => (
-  <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-    <div className="text-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
-      <p className="text-slate-400">Loading...</p>
-    </div>
-  </div>
-);
+import HomePage from './pages/HomePage';
+import SignInPage from './pages/SignInPage';
+import SignUpPage from './pages/SignUpPage';
+import DashboardPage from './pages/DashboardPage';
 
 function App() {
   return (
     <Router>
-      <ErrorBoundary>
-        <ToastProvider>
-          <AuthProvider>
-            <DataProvider>
-              <Layout>
-                <Suspense fallback={<LoadingSpinner />}>
-                  <Routes>
-                    {/* Public Routes */}
-                    <Route path="/" element={<HomePage />} />
-                    <Route path="/login" element={<LoginPage />} />
-                    <Route path="/register" element={<RegisterPage />} />
-                    <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-                    <Route path="/about" element={<AboutPage />} />
-                    <Route path="/contact" element={<ContactPage />} />
-                    <Route path="/terms" element={<TermsPage />} />
-                    
-                    {/* Protected User Routes */}
-                    <Route path="/dashboard" element={
-                      <ProtectedRoute>
-                        <UserDashboard />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/invest" element={
-                      <ProtectedRoute>
-                        <InvestmentPlans />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/deposit" element={
-                      <ProtectedRoute>
-                        <DepositPage />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/withdraw" element={
-                      <ProtectedRoute>
-                        <WithdrawPage />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/profile" element={
-                      <ProtectedRoute>
-                        <ProfilePage />
-                      </ProtectedRoute>
-                    } />
-                    
-                    {/* Protected Admin Routes */}
-                    <Route path="/admin" element={
-                      <ProtectedRoute adminOnly>
-                        <AdminDashboard />
-                      </ProtectedRoute>
-                    } />
-                    
-                    {/* Catch all route */}
-                    <Route path="*" element={<HomePage />} />
-                  </Routes>
-                </Suspense>
-              </Layout>
-            </DataProvider>
-          </AuthProvider>
-        </ToastProvider>
-      </ErrorBoundary>
+      <AuthProvider>
+        <InvestmentProvider>
+          <Layout>
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/" element={<HomePage />} />
+              <Route path="/signin" element={<SignInPage />} />
+              <Route path="/signup" element={<SignUpPage />} />
+              
+              {/* Protected Routes */}
+              <Route path="/dashboard" element={
+                <ProtectedRoute>
+                  <DashboardPage />
+                </ProtectedRoute>
+              } />
+              
+              {/* Catch all route */}
+              <Route path="*" element={<HomePage />} />
+            </Routes>
+          </Layout>
+          
+          <ToastContainer
+            position="top-right"
+            autoClose={5000}
+            hideProgressBar={false}
+            newestOnTop={false}
+            closeOnClick
+            rtl={false}
+            pauseOnFocusLoss
+            draggable
+            pauseOnHover
+            theme="dark"
+          />
+        </InvestmentProvider>
+      </AuthProvider>
     </Router>
   );
 }
