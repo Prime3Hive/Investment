@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: profitra-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: profitra
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - profitra-network
+
+  backend:
+    build: .
+    container_name: profitra-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      MONGODB_URI: mongodb://admin:password123@mongodb:27017/profitra?authSource=admin
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      JWT_EXPIRES_IN: 7d
+      PORT: 5000
+      BTC_WALLET_ADDRESS: 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa
+      USDT_WALLET_ADDRESS: 0x742D35Cc6634C0532925a3b8D49D6b5A0e65e8C6
+      ADMIN_EMAIL: admin@profitra.com
+      ADMIN_PASSWORD: admin123
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mongodb
+    networks:
+      - profitra-network
+    volumes:
+      - ./logs:/app/logs
+
+volumes:
+  mongodb_data:
+
+networks:
+  profitra-network:
+    driver: bridge
