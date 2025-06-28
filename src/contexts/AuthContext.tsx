@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { supabase } from '../lib/supabase';
-import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
+import { apiClient } from '../lib/api';
 import { toast } from 'react-toastify';
 
 interface User {
@@ -15,7 +14,6 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  session: Session | null;
   login: (email: string, password: string) => Promise<boolean>;
   register: (userData: RegisterData) => Promise<boolean>;
   logout: () => void;
@@ -44,107 +42,59 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        fetchUserProfile(session.user);
-      } else {
-        setIsLoading(false);
-      }
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setSession(session);
-      if (session?.user) {
-        await fetchUserProfile(session.user);
-      } else {
-        setUser(null);
-        setIsLoading(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const fetchUserProfile = async (authUser: SupabaseUser) => {
-    try {
-      // Add retry logic for profile fetching since it might take a moment for the trigger to create the profile
-      let retries = 3;
-      let profile = null;
-      
-      while (retries > 0 && !profile) {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', authUser.id)
-          .single();
-
-        if (error) {
-          if (error.code === 'PGRST116') {
-            // Profile not found, wait and retry
-            retries--;
-            if (retries > 0) {
-              await new Promise(resolve => setTimeout(resolve, 1000));
-              continue;
-            } else {
-              console.error('Profile not found after retries:', error);
-              setError('Failed to load user profile');
-              setIsLoading(false);
-              return;
-            }
-          } else {
-            throw error;
-          }
-        } else {
-          profile = data;
+    // Check if user is already logged in
+    const checkAuth = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (token) {
+          const profile = await apiClient.getProfile();
+          setUser({
+            id: profile._id,
+            name: profile.name,
+            email: profile.email,
+            balance: profile.balance,
+            isAdmin: profile.isAdmin,
+            btcWallet: profile.btcWallet,
+            usdtWallet: profile.usdtWallet,
+          });
         }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        localStorage.removeItem('token');
+      } finally {
+        setIsLoading(false);
       }
+    };
 
-      if (profile) {
-        setUser({
-          id: profile.id,
-          name: profile.name,
-          email: authUser.email || '',
-          balance: profile.balance,
-          isAdmin: profile.is_admin,
-          btcWallet: profile.btc_wallet,
-          usdtWallet: profile.usdt_wallet,
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-      setError('Failed to load user profile');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    checkAuth();
+  }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       setError(null);
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      const response = await apiClient.login({ email, password });
+      
+      localStorage.setItem('token', response.token);
+      setUser({
+        id: response.user._id,
+        name: response.user.name,
+        email: response.user.email,
+        balance: response.user.balance,
+        isAdmin: response.user.isAdmin,
+        btcWallet: response.user.btcWallet,
+        usdtWallet: response.user.usdtWallet,
       });
-
-      if (error) {
-        setError(error.message);
-        toast.error(error.message);
-        return false;
-      }
 
       toast.success('Login successful!');
       return true;
     } catch (error: any) {
-      setError(error.message);
-      toast.error(error.message);
+      const errorMessage = error.response?.data?.message || error.message || 'Login failed';
+      setError(errorMessage);
+      toast.error(errorMessage);
       return false;
     }
   };
@@ -153,79 +103,51 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       setError(null);
       
-      // Sign up with user metadata - this will trigger the database function to create the profile
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: userData.email,
-        password: userData.password,
-        options: {
-          data: {
-            name: userData.name,
-            btc_wallet: userData.btcWallet,
-            usdt_wallet: userData.usdtWallet,
-          }
-        }
-      });
-
-      if (authError) {
-        setError(authError.message);
-        toast.error(authError.message);
-        return false;
-      }
-
-      if (!authData.user) {
-        setError('Failed to create user account');
-        toast.error('Failed to create user account');
-        return false;
-      }
-
-      toast.success('Registration successful! Please check your email to verify your account.');
+      await apiClient.register(userData);
+      toast.success('Registration successful! Please log in with your credentials.');
       return true;
     } catch (error: any) {
-      console.error('Registration error:', error);
-      setError(error.message);
-      toast.error(error.message);
+      const errorMessage = error.response?.data?.message || error.message || 'Registration failed';
+      setError(errorMessage);
+      toast.error(errorMessage);
       return false;
     }
   };
 
-  const logout = async () => {
-    try {
-      await supabase.auth.signOut();
-      setUser(null);
-      setSession(null);
-      setError(null);
-      toast.success('Logged out successfully');
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
+  const logout = () => {
+    localStorage.removeItem('token');
+    setUser(null);
+    setError(null);
+    toast.success('Logged out successfully');
   };
 
   const updateProfile = async (data: Partial<User>) => {
     if (!user) return;
 
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          name: data.name,
-          btc_wallet: data.btcWallet,
-          usdt_wallet: data.usdtWallet,
-        })
-        .eq('id', user.id);
+      const updatedProfile = await apiClient.updateProfile({
+        name: data.name,
+        btcWallet: data.btcWallet,
+        usdtWallet: data.usdtWallet,
+      });
 
-      if (error) throw error;
-
-      setUser({ ...user, ...data });
+      setUser({
+        ...user,
+        name: updatedProfile.name,
+        btcWallet: updatedProfile.btcWallet,
+        usdtWallet: updatedProfile.usdtWallet,
+      });
+      
       toast.success('Profile updated successfully');
     } catch (error: any) {
-      toast.error('Failed to update profile');
+      const errorMessage = error.response?.data?.message || 'Failed to update profile';
+      toast.error(errorMessage);
       console.error('Update profile error:', error);
     }
   };
 
   const value: AuthContextType = {
     user,
-    session,
     login,
     register,
     logout,

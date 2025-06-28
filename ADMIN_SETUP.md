@@ -1,6 +1,10 @@
 # Admin Dashboard Setup Guide
 
-## Step 1: Create Admin Account
+**Note**: This document contains instructions for the previous Supabase implementation. The platform has been migrated to use Node.js/Express with MongoDB. These instructions need to be updated for the new backend.
+
+## Current Setup (MongoDB Backend)
+
+### Step 1: Create Admin Account
 
 1. Go to `/register` and create a new account with:
    - **Email**: `admin@profitra.com` (or any email you prefer)
@@ -9,36 +13,24 @@
    - **BTC Wallet**: Any valid BTC address
    - **USDT Wallet**: Any valid USDT address
 
-2. Check your email and click the verification link
+2. Complete the registration process
 
-3. Once verified, you can log in at `/login`
+### Step 2: Set Admin Privileges
 
-## Step 2: Set Admin Privileges
+You need to manually update the MongoDB database to grant admin privileges:
 
-You need to manually update the database to grant admin privileges:
+1. Connect to your MongoDB database
+2. Find the user document in the `users` collection
+3. Update the `isAdmin` field to `true`:
 
-### Option A: Using Supabase Dashboard
-1. Go to your Supabase project dashboard
-2. Navigate to **Table Editor** → **profiles**
-3. Find your user record
-4. Edit the `is_admin` column and set it to `true`
-5. Save the changes
-
-### Option B: Using SQL Query
-Run this SQL query in the Supabase SQL Editor:
-
-```sql
--- Replace 'admin@profitra.com' with your actual admin email
-UPDATE profiles 
-SET is_admin = true 
-WHERE id = (
-  SELECT id 
-  FROM auth.users 
-  WHERE email = 'admin@profitra.com'
-);
+```javascript
+db.users.updateOne(
+  { email: "admin@profitra.com" },
+  { $set: { isAdmin: true } }
+)
 ```
 
-## Step 3: Access Admin Dashboard
+### Step 3: Access Admin Dashboard
 
 1. **Log out** if currently logged in
 2. **Log back in** with your admin account
@@ -66,7 +58,7 @@ To verify admin access is working:
 
 **Problem**: Can't access `/admin` route
 **Solution**: 
-- Verify `is_admin` is set to `true` in the profiles table
+- Verify `isAdmin` is set to `true` in the users collection
 - Log out and log back in to refresh the user session
 - Check browser console for any errors
 
@@ -82,3 +74,30 @@ To verify admin access is working:
 - Use strong passwords for admin accounts
 - Consider using a dedicated admin email domain
 - Regularly audit admin access and remove when no longer needed
+
+---
+
+## Legacy Supabase Instructions (Deprecated)
+
+The following instructions were for the previous Supabase implementation and are kept for reference only:
+
+### Option A: Using Supabase Dashboard
+1. Go to your Supabase project dashboard
+2. Navigate to **Table Editor** → **profiles**
+3. Find your user record
+4. Edit the `is_admin` column and set it to `true`
+5. Save the changes
+
+### Option B: Using SQL Query
+Run this SQL query in the Supabase SQL Editor:
+
+```sql
+-- Replace 'admin@profitra.com' with your actual admin email
+UPDATE profiles 
+SET is_admin = true 
+WHERE id = (
+  SELECT id 
+  FROM auth.users 
+  WHERE email = 'admin@profitra.com'
+);
+```

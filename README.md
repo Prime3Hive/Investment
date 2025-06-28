@@ -1,6 +1,6 @@
 # Profitra - Investment Platform
 
-A complete cryptocurrency investment platform built with React, TypeScript, TailwindCSS, and Supabase.
+A complete cryptocurrency investment platform built with React, TypeScript, TailwindCSS, and Node.js/Express with MongoDB.
 
 ## Features
 
@@ -24,7 +24,7 @@ A complete cryptocurrency investment platform built with React, TypeScript, Tail
 - Transaction monitoring
 
 ### Security
-- Row Level Security (RLS) on all tables
+- JWT-based authentication
 - Protected routes
 - Admin-only access controls
 - Secure authentication flow
@@ -32,54 +32,74 @@ A complete cryptocurrency investment platform built with React, TypeScript, Tail
 ## Tech Stack
 
 - **Frontend**: React 18, TypeScript, TailwindCSS
-- **Backend**: Supabase (PostgreSQL, Auth, Real-time)
+- **Backend**: Node.js, Express.js, MongoDB
+- **Authentication**: JWT tokens
 - **Routing**: React Router v6
 - **Notifications**: React Toastify
 - **Icons**: Lucide React
 
 ## Environment Setup
 
-1. Create a `.env` file in the root directory:
+### Frontend (.env)
+Create a `.env` file in the root directory:
 
 ```env
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_API_URL=http://localhost:5000/api
 ```
 
-2. Get your Supabase credentials:
-   - Go to [Supabase](https://supabase.com)
-   - Create a new project
-   - Go to Settings > API
-   - Copy the Project URL and anon public key
+### Backend (server/.env)
+Create a `.env` file in the server directory:
+
+```env
+PORT=5000
+MONGODB_URI=mongodb://localhost:27017/profitra
+JWT_SECRET=your_jwt_secret_key_here
+NODE_ENV=development
+```
 
 ## Installation
 
 1. Clone the repository
-2. Install dependencies:
+2. Install frontend dependencies:
    ```bash
    npm install
    ```
 
-3. Set up your environment variables (see above)
+3. Install backend dependencies:
+   ```bash
+   cd server
+   npm install
+   ```
 
-4. Run the database migrations:
-   - Go to your Supabase project dashboard
-   - Navigate to SQL Editor
-   - Run the migration file: `supabase/migrations/20250101000000_initial_schema.sql`
+4. Set up your environment variables (see above)
 
-5. Start the development server:
+5. Start MongoDB (make sure MongoDB is running on your system)
+
+6. Seed the database with default investment plans:
+   ```bash
+   cd server
+   npm run seed
+   ```
+
+7. Start the backend server:
+   ```bash
+   cd server
+   npm start
+   ```
+
+8. Start the frontend development server:
    ```bash
    npm run dev
    ```
 
 ## Database Schema
 
-### Tables
+### Collections
 
-- **profiles**: User profiles with wallet addresses and balances
-- **investment_plans**: Available investment plans
+- **users**: User profiles with wallet addresses and balances
+- **investmentplans**: Available investment plans
 - **investments**: User investments with ROI tracking
-- **deposits**: Deposit requests awaiting admin confirmation
+- **depositrequests**: Deposit requests awaiting admin confirmation
 - **transactions**: All financial transactions
 
 ### Default Investment Plans
@@ -91,11 +111,10 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 
 ## Admin Setup
 
-1. Register a new account
-2. In Supabase dashboard, go to Table Editor > profiles
-3. Find your user record and set `is_admin` to `true`
-4. Log out and log back in
-5. Access admin panel at `/admin`
+1. Register a new account through the frontend
+2. In your MongoDB database, find the user document and set `isAdmin` to `true`
+3. Log out and log back in
+4. Access admin panel at `/admin`
 
 ## Routes
 
@@ -107,6 +126,7 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 
 ## Deployment
 
+### Frontend
 1. Build the project:
    ```bash
    npm run build
@@ -115,6 +135,11 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 2. Deploy the `dist` folder to your hosting provider
 
 3. Set up environment variables on your hosting platform
+
+### Backend
+1. Deploy to your preferred hosting service (Heroku, DigitalOcean, etc.)
+2. Set up environment variables
+3. Ensure MongoDB is accessible from your hosting environment
 
 ## Contributing
 

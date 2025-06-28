@@ -65,35 +65,32 @@ if (adminOnly && !user.isAdmin) {
 ## **🗄️ BACKEND/DATABASE ANALYSIS**
 
 ### **✅ Strengths**
-1. **Supabase Integration**: Robust backend-as-a-service
-2. **Row Level Security**: Properly configured RLS policies
-3. **Database Schema**: Well-structured with proper relationships
-4. **Triggers**: Automated timestamp updates
+1. **MongoDB Integration**: Robust NoSQL database solution
+2. **Express.js Framework**: Well-structured REST API
+3. **JWT Authentication**: Secure token-based authentication
+4. **Database Schema**: Well-structured with proper relationships
+5. **Middleware**: Authentication and validation middleware
 
 ### **❌ Critical Issues**
 
-#### **1. Missing Database Constraints**
-```sql
--- Missing constraints in profiles table
-ALTER TABLE profiles ADD CONSTRAINT check_balance_non_negative 
-CHECK (balance >= 0);
-
--- Missing foreign key validations
-ALTER TABLE investments ADD CONSTRAINT fk_investments_user_valid
-FOREIGN KEY (user_id) REFERENCES auth.users(id);
+#### **1. Missing Database Validation**
+```javascript
+// Missing validation in user schema
+const userSchema = new mongoose.Schema({
+  balance: { type: Number, default: 0 }, // Should have min: 0
+  email: { type: String, required: true }, // Should have unique: true
+});
 ```
 
 #### **2. Race Condition Vulnerabilities**
-```typescript
+```javascript
 // Problematic balance updates
-const { error } = await supabase
-  .from('profiles')
-  .update({ balance: supabase.sql`balance - ${amount}` })
-  .eq('id', userId);
+user.balance -= amount;
+await user.save();
 ```
 **Problem**: Concurrent transactions can cause data inconsistency
 **Impact**: Financial discrepancies
-**Recommendation**: Use database transactions
+**Recommendation**: Use MongoDB transactions
 
 #### **3. Insufficient Data Validation**
 - No server-side validation for investment amounts
@@ -102,11 +99,12 @@ const { error } = await supabase
 - No rate limiting on API calls
 
 #### **4. Security Gaps**
-```sql
--- Overly permissive policies
-CREATE POLICY "profiles_select_own" ON profiles
-FOR SELECT TO authenticated
-USING (uid() = id);
+```javascript
+// Overly permissive middleware
+app.use('/api', (req, res, next) => {
+  // Missing proper authorization checks
+  next();
+});
 ```
 **Problem**: No additional security checks
 **Impact**: Potential data exposure
@@ -130,10 +128,10 @@ const ProtectedRoute = ({ adminOnly }) => {
 **Severity**: HIGH
 **Impact**: Unauthorized admin access possible
 
-#### **2. SQL Injection Potential**
-```typescript
+#### **2. NoSQL Injection Potential**
+```javascript
 // Dynamic query construction
-const query = supabase.from('table').select('*').eq('field', userInput);
+const user = await User.findOne({ email: req.body.email });
 ```
 **Severity**: MEDIUM
 **Impact**: Data breach possible
@@ -158,14 +156,14 @@ const query = supabase.from('table').select('*').eq('field', userInput);
 ### **Issues Identified**
 
 #### **1. Database Query Inefficiencies**
-```sql
--- N+1 Query Problem
-SELECT * FROM investments WHERE user_id = ?;
--- Then for each investment:
-SELECT * FROM investment_plans WHERE id = ?;
+```javascript
+// N+1 Query Problem
+const investments = await Investment.find({ userId });
+// Then for each investment:
+const plan = await InvestmentPlan.findById(investment.planId);
 ```
 **Impact**: Slow page loads, high database load
-**Recommendation**: Use JOIN queries
+**Recommendation**: Use populate() for joins
 
 #### **2. Frontend Performance**
 - **Bundle Size**: ~2.5MB (too large)
@@ -215,36 +213,29 @@ if (formData.password !== formData.confirmPassword) {
 
 ## **🔧 API ENDPOINT ANALYSIS**
 
-### **Supabase Endpoints Used**
+### **Node.js/Express Endpoints**
 
 #### **Authentication Endpoints**
 ```
-POST /auth/v1/signup ✅
-POST /auth/v1/token ✅
-POST /auth/v1/logout ✅
-POST /auth/v1/recover ✅
+POST /api/auth/register ✅
+POST /api/auth/login ✅
+POST /api/auth/logout ✅
+GET /api/auth/profile ✅
+PUT /api/auth/profile ✅
 ```
 
-#### **Database Endpoints**
+#### **Investment Endpoints**
 ```
-GET /rest/v1/profiles ✅
-POST /rest/v1/profiles ✅
-PATCH /rest/v1/profiles ✅
+GET /api/investments/plans ✅
+GET /api/investments/user ✅
+POST /api/investments ✅
+```
 
-GET /rest/v1/investment_plans ✅
-GET /rest/v1/investments ✅
-POST /rest/v1/investments ✅
-
-GET /rest/v1/deposit_requests ✅
-POST /rest/v1/deposit_requests ✅
-PATCH /rest/v1/deposit_requests ✅
-
-GET /rest/v1/withdrawal_requests ✅
-POST /rest/v1/withdrawal_requests ✅
-PATCH /rest/v1/withdrawal_requests ✅
-
-GET /rest/v1/transactions ✅
-POST /rest/v1/transactions ✅
+#### **Deposit Endpoints**
+```
+GET /api/deposits/user ✅
+POST /api/deposits ✅
+PUT /api/deposits/:id ✅
 ```
 
 ### **Missing Endpoints**
@@ -253,6 +244,7 @@ POST /rest/v1/transactions ✅
 - Account deletion
 - Data export functionality
 - Audit logging
+- Transaction history
 
 ---
 
@@ -261,27 +253,28 @@ POST /rest/v1/transactions ✅
 ### **Immediate Actions Required**
 
 #### **1. Security Fixes (Priority: CRITICAL)**
-```typescript
+```javascript
 // Implement server-side authorization
-const checkAdminAccess = async (userId: string) => {
-  const { data } = await supabase.rpc('check_admin_status', { user_id: userId });
-  return data?.is_admin || false;
+const checkAdminAccess = async (req, res, next) => {
+  const user = await User.findById(req.user.id);
+  if (!user.isAdmin) {
+    return res.status(403).json({ message: 'Access denied' });
+  }
+  next();
 };
 ```
 
 #### **2. Database Improvements**
-```sql
--- Add missing constraints
-ALTER TABLE profiles ADD CONSTRAINT check_balance_non_negative CHECK (balance >= 0);
-ALTER TABLE investments ADD CONSTRAINT check_amount_positive CHECK (amount > 0);
-ALTER TABLE deposit_requests ADD CONSTRAINT check_amount_positive CHECK (amount > 0);
-ALTER TABLE withdrawal_requests ADD CONSTRAINT check_amount_positive CHECK (amount > 0);
+```javascript
+// Add missing validation
+const userSchema = new mongoose.Schema({
+  balance: { type: Number, default: 0, min: 0 },
+  email: { type: String, required: true, unique: true },
+  // Add indexes for performance
+});
 
--- Add indexes for performance
-CREATE INDEX idx_investments_user_status ON investments(user_id, status);
-CREATE INDEX idx_transactions_user_type ON transactions(user_id, type);
-CREATE INDEX idx_deposit_requests_status ON deposit_requests(status);
-CREATE INDEX idx_withdrawal_requests_status ON withdrawal_requests(status);
+userSchema.index({ email: 1 });
+userSchema.index({ isAdmin: 1 });
 ```
 
 #### **3. Error Handling**
@@ -339,7 +332,7 @@ import { FixedSizeList as List } from 'react-window';
 - **Performance**: Web Vitals, Lighthouse CI
 - **Analytics**: Google Analytics 4
 - **Uptime**: Pingdom or UptimeRobot
-- **Database**: Supabase built-in monitoring
+- **Database**: MongoDB Atlas monitoring
 
 ---
 

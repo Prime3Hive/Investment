@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { supabase } from '../lib/supabase';
+import { apiClient } from '../lib/api';
 import { useAuth } from './AuthContext';
 import { toast } from 'react-toastify';
 
@@ -36,21 +36,10 @@ interface DepositRequest {
   createdAt: string;
 }
 
-interface Transaction {
-  id: string;
-  userId: string;
-  type: 'deposit' | 'investment' | 'profit' | 'reinvestment';
-  amount: number;
-  status: 'pending' | 'completed' | 'failed';
-  description: string;
-  createdAt: string;
-}
-
 interface InvestmentContextType {
   plans: InvestmentPlan[];
   investments: Investment[];
   deposits: DepositRequest[];
-  transactions: Transaction[];
   createInvestment: (planId: string, amount: number) => Promise<boolean>;
   createDepositRequest: (amount: number, currency: 'BTC' | 'USDT') => Promise<boolean>;
   fetchUserData: () => Promise<void>;
@@ -67,18 +56,11 @@ export const useInvestment = () => {
   return context;
 };
 
-// Static wallet addresses for deposits
-const WALLET_ADDRESSES = {
-  BTC: '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa',
-  USDT: '0x742D35Cc6634C0532925a3b8D49D6b5A0e65e8C6'
-};
-
 export const InvestmentProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const [plans, setPlans] = useState<InvestmentPlan[]>([]);
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [deposits, setDeposits] = useState<DepositRequest[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -90,23 +72,16 @@ export const InvestmentProvider: React.FC<{ children: ReactNode }> = ({ children
 
   const fetchPlans = async () => {
     try {
-      const { data, error } = await supabase
-        .from('investment_plans')
-        .select('*')
-        .eq('is_active', true)
-        .order('min_amount');
-
-      if (error) throw error;
-
-      setPlans(data.map(plan => ({
-        id: plan.id,
+      const data = await apiClient.getInvestmentPlans();
+      setPlans(data.map((plan: any) => ({
+        id: plan._id,
         name: plan.name,
-        minAmount: plan.min_amount,
-        maxAmount: plan.max_amount,
+        minAmount: plan.minAmount,
+        maxAmount: plan.maxAmount,
         roi: plan.roi,
-        durationHours: plan.duration_hours,
+        durationHours: plan.durationHours,
         description: plan.description || '',
-        isActive: plan.is_active,
+        isActive: plan.isActive,
       })));
     } catch (error) {
       console.error('Error fetching plans:', error);
@@ -119,76 +94,40 @@ export const InvestmentProvider: React.FC<{ children: ReactNode }> = ({ children
     setIsLoading(true);
     try {
       // Fetch investments
-      const { data: investmentData, error: investmentError } = await supabase
-        .from('investments')
-        .select(`
-          *,
-          investment_plans (*)
-        `)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (investmentError) throw investmentError;
-
-      setInvestments(investmentData.map(inv => ({
-        id: inv.id,
-        userId: inv.user_id,
-        planId: inv.plan_id,
+      const investmentData = await apiClient.getUserInvestments();
+      setInvestments(investmentData.map((inv: any) => ({
+        id: inv._id,
+        userId: inv.userId,
+        planId: inv.planId,
         amount: inv.amount,
         roi: inv.roi,
-        startDate: inv.start_date,
-        endDate: inv.end_date,
+        startDate: inv.createdAt,
+        endDate: inv.endsAt,
         status: inv.status,
-        plan: inv.investment_plans ? {
-          id: inv.investment_plans.id,
-          name: inv.investment_plans.name,
-          minAmount: inv.investment_plans.min_amount,
-          maxAmount: inv.investment_plans.max_amount,
-          roi: inv.investment_plans.roi,
-          durationHours: inv.investment_plans.duration_hours,
-          description: inv.investment_plans.description || '',
-          isActive: inv.investment_plans.is_active,
+        plan: inv.plan ? {
+          id: inv.plan._id,
+          name: inv.plan.name,
+          minAmount: inv.plan.minAmount,
+          maxAmount: inv.plan.maxAmount,
+          roi: inv.plan.roi,
+          durationHours: inv.plan.durationHours,
+          description: inv.plan.description || '',
+          isActive: inv.plan.isActive,
         } : undefined,
       })));
 
       // Fetch deposit requests
-      const { data: depositData, error: depositError } = await supabase
-        .from('deposit_requests')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (depositError) throw depositError;
-
-      setDeposits(depositData.map(dep => ({
-        id: dep.id,
-        userId: dep.user_id,
+      const depositData = await apiClient.getUserDeposits();
+      setDeposits(depositData.map((dep: any) => ({
+        id: dep._id,
+        userId: dep.userId,
         amount: dep.amount,
         currency: dep.currency,
-        walletAddress: dep.wallet_address,
+        walletAddress: dep.walletAddress,
         status: dep.status,
-        createdAt: dep.created_at,
+        createdAt: dep.createdAt,
       })));
 
-      // Fetch transactions
-      const { data: transactionData, error: transactionError } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (transactionError) throw transactionError;
-
-      setTransactions(transactionData.map(tx => ({
-        id: tx.id,
-        userId: tx.user_id,
-        type: tx.type,
-        amount: tx.amount,
-        status: tx.status,
-        description: tx.description,
-        createdAt: tx.created_at,
-      })));
     } catch (error) {
       console.error('Error fetching user data:', error);
       toast.error('Failed to load data');
@@ -217,48 +156,14 @@ export const InvestmentProvider: React.FC<{ children: ReactNode }> = ({ children
         return false;
       }
 
-      const endDate = new Date();
-      endDate.setHours(endDate.getHours() + plan.durationHours);
-
-      // Create investment
-      const { error: investmentError } = await supabase
-        .from('investments')
-        .insert({
-          user_id: user.id,
-          plan_id: planId,
-          amount,
-          end_date: endDate.toISOString(),
-          roi: plan.roi,
-          status: 'active',
-        });
-
-      if (investmentError) throw investmentError;
-
-      // Update user balance
-      const { error: balanceError } = await supabase
-        .from('profiles')
-        .update({ balance: user.balance - amount })
-        .eq('id', user.id);
-
-      if (balanceError) throw balanceError;
-
-      // Create transaction record
-      await supabase
-        .from('transactions')
-        .insert({
-          user_id: user.id,
-          type: 'investment',
-          amount,
-          status: 'completed',
-          description: `Investment in ${plan.name} plan`,
-        });
-
+      await apiClient.createInvestment({ planId, amount });
       toast.success('Investment created successfully!');
       await fetchUserData();
       return true;
     } catch (error: any) {
       console.error('Error creating investment:', error);
-      toast.error('Failed to create investment');
+      const errorMessage = error.response?.data?.message || 'Failed to create investment';
+      toast.error(errorMessage);
       return false;
     }
   };
@@ -267,35 +172,14 @@ export const InvestmentProvider: React.FC<{ children: ReactNode }> = ({ children
     if (!user) return false;
 
     try {
-      const { error } = await supabase
-        .from('deposit_requests')
-        .insert({
-          user_id: user.id,
-          amount,
-          currency,
-          wallet_address: WALLET_ADDRESSES[currency],
-          status: 'pending',
-        });
-
-      if (error) throw error;
-
-      // Create transaction record
-      await supabase
-        .from('transactions')
-        .insert({
-          user_id: user.id,
-          type: 'deposit',
-          amount,
-          status: 'pending',
-          description: `${currency} deposit request`,
-        });
-
+      await apiClient.createDeposit({ amount, currency });
       toast.success('Deposit request submitted! Please wait for admin confirmation.');
       await fetchUserData();
       return true;
     } catch (error: any) {
       console.error('Error creating deposit:', error);
-      toast.error('Failed to submit deposit request');
+      const errorMessage = error.response?.data?.message || 'Failed to submit deposit request';
+      toast.error(errorMessage);
       return false;
     }
   };
@@ -304,7 +188,6 @@ export const InvestmentProvider: React.FC<{ children: ReactNode }> = ({ children
     plans,
     investments,
     deposits,
-    transactions,
     createInvestment,
     createDepositRequest,
     fetchUserData,
