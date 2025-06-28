@@ -84,7 +84,7 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
 };
 
 // Generate email verification token
-userSchema.methods.createEmailVerificationToken = function() {
+userSchema.methods.createEmailVerificationToken = async function() {
   const crypto = await import('crypto');
   const token = crypto.randomBytes(32).toString('hex');
   this.emailVerificationToken = crypto.createHash('sha256').update(token).digest('hex');
@@ -92,7 +92,7 @@ userSchema.methods.createEmailVerificationToken = function() {
 };
 
 // Generate password reset token
-userSchema.methods.createPasswordResetToken = function() {
+userSchema.methods.createPasswordResetToken = async function() {
   const crypto = await import('crypto');
   const resetToken = crypto.randomBytes(32).toString('hex');
   
