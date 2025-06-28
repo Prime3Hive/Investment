@@ -1,6 +1,6 @@
 # Profitra - Investment Platform
 
-A complete cryptocurrency investment platform built with React, TypeScript, TailwindCSS, and Node.js/Express with MongoDB.
+A modern cryptocurrency investment platform built with React, TypeScript, TailwindCSS, and Supabase.
 
 ## Features
 
@@ -32,74 +32,43 @@ A complete cryptocurrency investment platform built with React, TypeScript, Tail
 ## Tech Stack
 
 - **Frontend**: React 18, TypeScript, TailwindCSS
-- **Backend**: Node.js, Express.js, MongoDB
-- **Authentication**: JWT tokens
+- **Backend**: Supabase (Database, Authentication, Real-time)
 - **Routing**: React Router v6
 - **Notifications**: React Toastify
 - **Icons**: Lucide React
 
 ## Environment Setup
 
-### Frontend (.env)
 Create a `.env` file in the root directory:
 
 ```env
-VITE_API_URL=http://localhost:5000/api
-```
-
-### Backend (server/.env)
-Create a `.env` file in the server directory:
-
-```env
-PORT=5000
-MONGODB_URI=mongodb://localhost:27017/profitra
-JWT_SECRET=your_jwt_secret_key_here
-NODE_ENV=development
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
 ## Installation
 
 1. Clone the repository
-2. Install frontend dependencies:
+2. Install dependencies:
    ```bash
    npm install
    ```
 
-3. Install backend dependencies:
-   ```bash
-   cd server
-   npm install
-   ```
+3. Set up your environment variables (see above)
 
-4. Set up your environment variables (see above)
-
-5. Start MongoDB (make sure MongoDB is running on your system)
-
-6. Seed the database with default investment plans:
-   ```bash
-   cd server
-   npm run seed
-   ```
-
-7. Start the backend server:
-   ```bash
-   cd server
-   npm start
-   ```
-
-8. Start the frontend development server:
+4. Start the development server:
    ```bash
    npm run dev
    ```
 
 ## Database Schema
 
-### Collections
+The application uses Supabase for backend services including:
 
 - **users**: User profiles with wallet addresses and balances
-- **investmentplans**: Available investment plans
+- **investment_plans**: Available investment plans
 - **investments**: User investments with ROI tracking
-- **depositrequests**: Deposit requests awaiting admin confirmation
+- **deposit_requests**: Deposit requests awaiting admin confirmation
 - **transactions**: All financial transactions
 
 ### Default Investment Plans
@@ -112,7 +81,7 @@ NODE_ENV=development
 ## Admin Setup
 
 1. Register a new account through the frontend
-2. In your MongoDB database, find the user document and set `isAdmin` to `true`
+2. In your Supabase dashboard, find the user record and set `is_admin` to `true`
 3. Log out and log back in
 4. Access admin panel at `/admin`
 
@@ -126,20 +95,14 @@ NODE_ENV=development
 
 ## Deployment
 
-### Frontend
 1. Build the project:
    ```bash
    npm run build
    ```
 
-2. Deploy the `dist` folder to your hosting provider
+2. Deploy the `dist` folder to your hosting provider (Netlify, Vercel, etc.)
 
 3. Set up environment variables on your hosting platform
-
-### Backend
-1. Deploy to your preferred hosting service (Heroku, DigitalOcean, etc.)
-2. Set up environment variables
-3. Ensure MongoDB is accessible from your hosting environment
 
 ## Contributing
 
