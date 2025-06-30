@@ -25,16 +25,42 @@ class ApiClient {
     };
 
     try {
+      console.log(`API Request to: ${url}`, { method: options.method || 'GET' });
       const response = await fetch(url, config);
-      const data = await response.json();
+      
+      // Check if the response is valid before trying to parse JSON
+      if (!response) {
+        throw new Error(`No response received from ${url}`);
+      }
+      
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError: unknown) {
+        const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown parse error';
+        console.error('Failed to parse JSON response:', parseError);
+        throw new Error(`Invalid JSON response from ${url}: ${errorMessage}`);
+      }
 
       if (!response.ok) {
-        throw new Error(data.message || 'An error occurred');
+        console.error('API error response:', { 
+          status: response.status, 
+          statusText: response.statusText,
+          data 
+        });
+        throw new Error(data.message || `Server error: ${response.status} ${response.statusText}`);
       }
 
       return data;
-    } catch (error) {
-      console.error('API request failed:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      console.error('API request failed:', { 
+        url, 
+        method: options.method || 'GET',
+        error: errorMessage,
+        stack: errorStack
+      });
       throw error;
     }
   }
@@ -72,21 +98,30 @@ class ApiClient {
     return response;
   }
 
-  async login(email: string, password: string) {
-    const response = await this.request<{
-      success: boolean;
-      token: string;
-      user: any;
-    }>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    });
+  async login({ email, password }: { email: string; password: string }) {
+    console.log('Login attempt with:', { email, redactedPassword: '***' });
+    
+    try {
+      const response = await this.request<{
+        success: boolean;
+        token: string;
+        user: any;
+      }>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
 
-    if (response.success && response.token) {
-      this.setToken(response.token);
+      console.log('Login response:', { success: response.success });
+      
+      if (response.success && response.token) {
+        this.setToken(response.token);
+      }
+
+      return response;
+    } catch (error) {
+      console.error('Login error in API client:', error);
+      throw error;
     }
-
-    return response;
   }
 
   async logout() {

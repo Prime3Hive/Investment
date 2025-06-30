@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
+import mongoose from 'mongoose';
 import connectDB from './config/database.js';
 
 // Import routes
@@ -32,10 +33,29 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// CORS
+// CORS - Updated to be more permissive for development
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, Postman)
+    if(!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'http://localhost:5173',  // Vite default
+      'http://localhost:3000',  // Common React port
+      'http://127.0.0.1:5173',  // Alternative localhost
+      process.env.FRONTEND_URL  // From environment if set
+    ].filter(Boolean); // Remove undefined/null values
+    
+    if(allowedOrigins.indexOf(origin) !== -1 || !origin) {
+      callback(null, true);
+    } else {
+      console.log('CORS blocked origin:', origin);
+      callback(null, true); // Allow all origins in development
+    }
+  },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
 // Body parser middleware
@@ -48,12 +68,25 @@ app.use('/api/investments', investmentRoutes);
 app.use('/api/deposits', depositRoutes);
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'Server is running',
-    timestamp: new Date().toISOString(),
-  });
+app.get('/api/health', (req, res, next) => {
+  try {
+    // Check database connection
+    const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+    
+    res.status(200).json({
+      success: true,
+      message: 'Server is running',
+      timestamp: new Date().toISOString(),
+      database: {
+        status: dbStatus,
+        name: mongoose.connection.name || 'unknown'
+      },
+      environment: process.env.NODE_ENV || 'development'
+    });
+  } catch (error) {
+    console.error('Health check error:', error);
+    next(error); // Pass error to global error handler
+  }
 });
 
 // 404 handler

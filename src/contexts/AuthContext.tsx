@@ -51,16 +51,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       try {
         const token = localStorage.getItem('token');
         if (token) {
-          const profile = await apiClient.getProfile();
-          setUser({
-            id: profile._id,
-            name: profile.name,
-            email: profile.email,
-            balance: profile.balance,
-            isAdmin: profile.isAdmin,
-            btcWallet: profile.btcWallet,
-            usdtWallet: profile.usdtWallet,
-          });
+          const response = await apiClient.getProfile();
+          if (response.success && response.user) {
+            setUser({
+              id: response.user._id,
+              name: response.user.name,
+              email: response.user.email,
+              balance: response.user.balance,
+              isAdmin: response.user.isAdmin,
+              btcWallet: response.user.btcWallet,
+              usdtWallet: response.user.usdtWallet,
+            });
+          }
         }
       } catch (error) {
         console.error('Auth check failed:', error);
@@ -76,23 +78,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       setError(null);
-      const response = await apiClient.login({ email, password });
+      console.log('AuthContext: Attempting login with:', { email });
       
-      localStorage.setItem('token', response.token);
-      setUser({
-        id: response.user._id,
-        name: response.user.name,
-        email: response.user.email,
-        balance: response.user.balance,
-        isAdmin: response.user.isAdmin,
-        btcWallet: response.user.btcWallet,
-        usdtWallet: response.user.usdtWallet,
-      });
+      const response = await apiClient.login({ email, password });
+      console.log('AuthContext: Login response received');
+      
+      if (response && response.token) {
+        localStorage.setItem('token', response.token);
+        setUser({
+          id: response.user._id,
+          name: response.user.name,
+          email: response.user.email,
+          balance: response.user.balance,
+          isAdmin: response.user.isAdmin,
+          btcWallet: response.user.btcWallet,
+          usdtWallet: response.user.usdtWallet,
+        });
 
-      toast.success('Login successful!');
-      return true;
+        toast.success('Login successful!');
+        return true;
+      } else {
+        console.error('AuthContext: Login response missing token or user data');
+        setError('Invalid login response from server');
+        toast.error('Login failed: Invalid response from server');
+        return false;
+      }
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || 'Login failed';
+      console.error('AuthContext: Login error:', error);
+      const errorMessage = error.message || 'Login failed';
       setError(errorMessage);
       toast.error(errorMessage);
       return false;
@@ -121,22 +134,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     toast.success('Logged out successfully');
   };
 
-  const updateProfile = async (data: Partial<User>) => {
+  const updateProfile = async (data: Partial<User>): Promise<void> => {
     if (!user) return;
 
     try {
-      const updatedProfile = await apiClient.updateProfile({
+      const response = await apiClient.updateProfile({
         name: data.name,
         btcWallet: data.btcWallet,
         usdtWallet: data.usdtWallet,
       });
 
-      setUser({
-        ...user,
-        name: updatedProfile.name,
-        btcWallet: updatedProfile.btcWallet,
-        usdtWallet: updatedProfile.usdtWallet,
-      });
+      if (response.success && response.user) {
+        setUser({
+          ...user,
+          name: response.user.name,
+          btcWallet: response.user.btcWallet,
+          usdtWallet: response.user.usdtWallet,
+        });
+      }
       
       toast.success('Profile updated successfully');
     } catch (error: any) {
