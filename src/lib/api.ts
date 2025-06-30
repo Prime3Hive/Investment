@@ -28,6 +28,7 @@ class ApiClient {
 
     try {
       console.log(`API Request to: ${url}`, { method: options.method || 'GET' });
+      console.log("Requesting:", url, "with", config);
       const response = await fetch(url, config);
       
       if (!response) {
@@ -54,8 +55,7 @@ class ApiClient {
 
       return data;
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('API request failed:', error);
+      console.error('API request failed:', error instanceof Error ? error.message : 'Unknown error');
       throw error;
     }
   }
