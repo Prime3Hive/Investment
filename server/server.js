@@ -1,8 +1,10 @@
+import dotenv from 'dotenv';
+dotenv.config(); // add this at the top of server.js
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import connectDB from './config/database.js';
 
@@ -45,21 +47,21 @@ app.use('/api/', limiter);
 
 // CORS configuration - Allow frontend to connect
 app.use(cors({
-  origin: [
-    'http://localhost:5173',  // Vite default
-    'http://localhost:3000',  // Common React port
-    'http://127.0.0.1:5173',  // Alternative localhost
-    'https://localhost:5173', // HTTPS variant
-    process.env.FRONTEND_URL  // From environment if set
-  ].filter(Boolean), // Remove undefined/null values
+  origin: '*', // Allow all origins for development - restrict this in production
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Length', 'X-Requested-With'],
   optionsSuccessStatus: 200 // For legacy browser support
 }));
 
-// Handle preflight requests
-app.options('*', cors());
+// Enable CORS for all routes as a backup
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  next();
+});
 
 // Body parser middleware
 app.use(express.json({ limit: '10mb' }));

@@ -21,6 +21,8 @@ class ApiClient {
         ...(this.token && { Authorization: `Bearer ${this.token}` }),
         ...options.headers,
       },
+      mode: 'cors',
+      credentials: 'include',
       ...options,
     };
 
@@ -53,11 +55,7 @@ class ApiClient {
       return data;
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('API request failed:', { 
-        url, 
-        method: options.method || 'GET',
-        error: errorMessage
-      });
+      console.error('API request failed:', error);
       throw error;
     }
   }
@@ -226,6 +224,56 @@ class ApiClient {
       success: boolean;
       data: any;
     }>(`/deposits/admin/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getAllUsers() {
+    return this.request<{
+      success: boolean;
+      data: any[];
+    }>('/admin/users');
+  }
+
+  async getAllInvestments(params?: {
+    status?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const queryString = params ? new URLSearchParams(params as any).toString() : '';
+    return this.request<{
+      success: boolean;
+      data: any[];
+      pagination: any;
+    }>(`/admin/investments${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getAllWithdrawals(params?: {
+    status?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const queryString = params ? new URLSearchParams(params as any).toString() : '';
+    return this.request<{
+      success: boolean;
+      data: any[];
+      pagination: any;
+    }>(`/admin/withdrawals${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async processWithdrawalRequest(
+    id: string,
+    data: {
+      status: 'confirmed' | 'rejected';
+      adminNotes?: string;
+      transactionHash?: string;
+    }
+  ) {
+    return this.request<{
+      success: boolean;
+      data: any;
+    }>(`/admin/withdrawals/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
