@@ -28,7 +28,6 @@ class ApiClient {
       console.log(`API Request to: ${url}`, { method: options.method || 'GET' });
       const response = await fetch(url, config);
       
-      // Check if the response is valid before trying to parse JSON
       if (!response) {
         throw new Error(`No response received from ${url}`);
       }
@@ -152,13 +151,14 @@ class ApiClient {
 
   // Investment endpoints
   async getInvestmentPlans() {
-    return this.request<{
+    const response = await this.request<{
       success: boolean;
       data: any[];
     }>('/investments/plans');
+    return response.data;
   }
 
-  async createInvestment(planId: string, amount: number) {
+  async createInvestment({ planId, amount }: { planId: string; amount: number }) {
     return this.request<{
       success: boolean;
       data: any;
@@ -169,10 +169,11 @@ class ApiClient {
   }
 
   async getUserInvestments() {
-    return this.request<{
+    const response = await this.request<{
       success: boolean;
       data: any[];
     }>('/investments');
+    return response.data;
   }
 
   async getInvestmentById(id: string) {
@@ -183,7 +184,7 @@ class ApiClient {
   }
 
   // Deposit endpoints
-  async createDepositRequest(amount: number, currency: 'BTC' | 'USDT') {
+  async createDeposit({ amount, currency }: { amount: number; currency: 'BTC' | 'USDT' }) {
     return this.request<{
       success: boolean;
       data: any;
@@ -193,11 +194,12 @@ class ApiClient {
     });
   }
 
-  async getUserDepositRequests() {
-    return this.request<{
+  async getUserDeposits() {
+    const response = await this.request<{
       success: boolean;
       data: any[];
     }>('/deposits');
+    return response.data;
   }
 
   // Admin endpoints

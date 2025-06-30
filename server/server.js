@@ -20,7 +20,17 @@ connectDB();
 const app = express();
 
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+  crossOriginEmbedderPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  },
+}));
 
 // Rate limiting
 const limiter = rateLimit({
@@ -33,34 +43,33 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// CORS - Updated to be more permissive for development
+// CORS configuration - Allow frontend to connect
 app.use(cors({
-  origin: function(origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl, Postman)
-    if(!origin) return callback(null, true);
-    
-    const allowedOrigins = [
-      'http://localhost:5173',  // Vite default
-      'http://localhost:3000',  // Common React port
-      'http://127.0.0.1:5173',  // Alternative localhost
-      process.env.FRONTEND_URL  // From environment if set
-    ].filter(Boolean); // Remove undefined/null values
-    
-    if(allowedOrigins.indexOf(origin) !== -1 || !origin) {
-      callback(null, true);
-    } else {
-      console.log('CORS blocked origin:', origin);
-      callback(null, true); // Allow all origins in development
-    }
-  },
+  origin: [
+    'http://localhost:5173',  // Vite default
+    'http://localhost:3000',  // Common React port
+    'http://127.0.0.1:5173',  // Alternative localhost
+    'https://localhost:5173', // HTTPS variant
+    process.env.FRONTEND_URL  // From environment if set
+  ].filter(Boolean), // Remove undefined/null values
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  optionsSuccessStatus: 200 // For legacy browser support
 }));
+
+// Handle preflight requests
+app.options('*', cors());
 
 // Body parser middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  next();
+});
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -89,11 +98,27 @@ app.get('/api/health', (req, res, next) => {
   }
 });
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Profitra API Server',
+    version: '1.0.0',
+    endpoints: {
+      health: '/api/health',
+      auth: '/api/auth',
+      investments: '/api/investments',
+      deposits: '/api/deposits'
+    }
+  });
+});
+
 // 404 handler
 app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
     message: 'Route not found',
+    path: req.originalUrl
   });
 });
 
@@ -110,19 +135,34 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV}`);
+const server = app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
+  console.log(`📡 API Base URL: http://localhost:${PORT}/api`);
 });
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
   console.error('Unhandled Promise Rejection:', err);
-  process.exit(1);
+  server.close(() => {
+    process.exit(1);
+  });
 });
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err);
   process.exit(1);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received. Shutting down gracefully...');
+  server.close(() => {
+    mongoose.connection.close(false, () => {
+      console.log('MongoDB connection closed.');
+      process.exit(0);
+    });
+  });
 });

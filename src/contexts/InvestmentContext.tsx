@@ -36,10 +36,21 @@ interface DepositRequest {
   createdAt: string;
 }
 
+interface Transaction {
+  id: string;
+  userId: string;
+  type: 'deposit' | 'investment' | 'profit' | 'reinvestment' | 'withdrawal';
+  amount: number;
+  status: 'pending' | 'completed' | 'failed';
+  description: string;
+  createdAt: string;
+}
+
 interface InvestmentContextType {
   plans: InvestmentPlan[];
   investments: Investment[];
   deposits: DepositRequest[];
+  transactions: Transaction[];
   createInvestment: (planId: string, amount: number) => Promise<boolean>;
   createDepositRequest: (amount: number, currency: 'BTC' | 'USDT') => Promise<boolean>;
   fetchUserData: () => Promise<void>;
@@ -61,6 +72,7 @@ export const InvestmentProvider: React.FC<{ children: ReactNode }> = ({ children
   const [plans, setPlans] = useState<InvestmentPlan[]>([]);
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [deposits, setDeposits] = useState<DepositRequest[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -72,7 +84,10 @@ export const InvestmentProvider: React.FC<{ children: ReactNode }> = ({ children
 
   const fetchPlans = async () => {
     try {
+      console.log('Fetching investment plans...');
       const data = await apiClient.getInvestmentPlans();
+      console.log('Plans fetched successfully:', data);
+      
       setPlans(data.map((plan: any) => ({
         id: plan._id,
         name: plan.name,
@@ -85,6 +100,7 @@ export const InvestmentProvider: React.FC<{ children: ReactNode }> = ({ children
       })));
     } catch (error) {
       console.error('Error fetching plans:', error);
+      toast.error('Failed to load investment plans');
     }
   };
 
@@ -93,31 +109,37 @@ export const InvestmentProvider: React.FC<{ children: ReactNode }> = ({ children
 
     setIsLoading(true);
     try {
+      console.log('Fetching user data...');
+      
       // Fetch investments
       const investmentData = await apiClient.getUserInvestments();
+      console.log('Investments fetched:', investmentData);
+      
       setInvestments(investmentData.map((inv: any) => ({
         id: inv._id,
         userId: inv.userId,
-        planId: inv.planId,
+        planId: inv.planId._id || inv.planId,
         amount: inv.amount,
         roi: inv.roi,
-        startDate: inv.createdAt,
-        endDate: inv.endsAt,
+        startDate: inv.startDate || inv.createdAt,
+        endDate: inv.endDate,
         status: inv.status,
-        plan: inv.plan ? {
-          id: inv.plan._id,
-          name: inv.plan.name,
-          minAmount: inv.plan.minAmount,
-          maxAmount: inv.plan.maxAmount,
-          roi: inv.plan.roi,
-          durationHours: inv.plan.durationHours,
-          description: inv.plan.description || '',
-          isActive: inv.plan.isActive,
+        plan: inv.planId && typeof inv.planId === 'object' ? {
+          id: inv.planId._id,
+          name: inv.planId.name,
+          minAmount: inv.planId.minAmount,
+          maxAmount: inv.planId.maxAmount,
+          roi: inv.planId.roi,
+          durationHours: inv.planId.durationHours,
+          description: inv.planId.description || '',
+          isActive: inv.planId.isActive,
         } : undefined,
       })));
 
       // Fetch deposit requests
       const depositData = await apiClient.getUserDeposits();
+      console.log('Deposits fetched:', depositData);
+      
       setDeposits(depositData.map((dep: any) => ({
         id: dep._id,
         userId: dep.userId,
@@ -128,9 +150,36 @@ export const InvestmentProvider: React.FC<{ children: ReactNode }> = ({ children
         createdAt: dep.createdAt,
       })));
 
+      // Create mock transactions from investments and deposits for now
+      const allTransactions: Transaction[] = [
+        ...investmentData.map((inv: any) => ({
+          id: `inv-${inv._id}`,
+          userId: inv.userId,
+          type: 'investment' as const,
+          amount: inv.amount,
+          status: 'completed' as const,
+          description: `Investment in ${inv.planId?.name || 'plan'}`,
+          createdAt: inv.createdAt,
+        })),
+        ...depositData.map((dep: any) => ({
+          id: `dep-${dep._id}`,
+          userId: dep.userId,
+          type: 'deposit' as const,
+          amount: dep.amount,
+          status: dep.status === 'confirmed' ? 'completed' as const : 
+                  dep.status === 'rejected' ? 'failed' as const : 'pending' as const,
+          description: `${dep.currency} deposit - $${dep.amount}`,
+          createdAt: dep.createdAt,
+        }))
+      ];
+
+      setTransactions(allTransactions.sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      ));
+
     } catch (error) {
       console.error('Error fetching user data:', error);
-      toast.error('Failed to load data');
+      toast.error('Failed to load user data');
     } finally {
       setIsLoading(false);
     }
@@ -162,7 +211,7 @@ export const InvestmentProvider: React.FC<{ children: ReactNode }> = ({ children
       return true;
     } catch (error: any) {
       console.error('Error creating investment:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to create investment';
+      const errorMessage = error.message || 'Failed to create investment';
       toast.error(errorMessage);
       return false;
     }
@@ -178,7 +227,7 @@ export const InvestmentProvider: React.FC<{ children: ReactNode }> = ({ children
       return true;
     } catch (error: any) {
       console.error('Error creating deposit:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to submit deposit request';
+      const errorMessage = error.message || 'Failed to submit deposit request';
       toast.error(errorMessage);
       return false;
     }
@@ -188,6 +237,7 @@ export const InvestmentProvider: React.FC<{ children: ReactNode }> = ({ children
     plans,
     investments,
     deposits,
+    transactions,
     createInvestment,
     createDepositRequest,
     fetchUserData,
