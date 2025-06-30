@@ -70,3 +70,19 @@ export const depositValidation = [
     .isIn(['BTC', 'USDT'])
     .withMessage('Currency must be BTC or USDT'),
 ];
+
+export const withdrawalValidation = [
+  body('amount')
+    .isNumeric()
+    .isFloat({ min: 10 })
+    .withMessage('Withdrawal amount must be at least 10'),
+  
+  body('currency')
+    .isIn(['BTC', 'USDT', 'ETH'])
+    .withMessage('Currency must be BTC, USDT, or ETH'),
+    
+  body('wallet')
+    .trim()
+    .notEmpty()
+    .withMessage('Wallet address is required'),
+];

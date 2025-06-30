@@ -12,6 +12,7 @@ import connectDB from './config/database.js';
 import authRoutes from './routes/auth.js';
 import investmentRoutes from './routes/investments.js';
 import depositRoutes from './routes/deposits.js';
+import withdrawalRoutes from './routes/withdrawals.js';
 
 // Load environment variables
 dotenv.config();
@@ -67,6 +68,7 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/investments', investmentRoutes);
 app.use('/api/deposits', depositRoutes);
+app.use('/api/withdrawals', withdrawalRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res, next) => {
@@ -100,7 +102,8 @@ app.get('/', (req, res) => {
       health: '/api/health',
       auth: '/api/auth',
       investments: '/api/investments',
-      deposits: '/api/deposits'
+      deposits: '/api/deposits',
+      withdrawals: '/api/withdrawals'
     }
   });
 });
