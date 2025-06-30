@@ -1,247 +1,128 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// API functions disabled - backend server removed
+// All API calls will return mock data or throw errors
 
-class ApiClient {
-  private baseURL: string;
-  private token: string | null = null;
+const API_BASE_URL = 'http://localhost:5000/api';
 
-  constructor(baseURL: string) {
-    this.baseURL = baseURL;
-    this.token = localStorage.getItem('token');
-  }
+// Mock user for development
+const mockUser = {
+  id: '1',
+  email: 'demo@example.com',
+  name: 'Demo User',
+  balance: 10000,
+  totalInvested: 5000,
+  totalEarnings: 750
+};
 
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<T> {
-    const url = `${this.baseURL}${endpoint}`;
-    
-    const config: RequestInit = {
-      headers: {
-        'Content-Type': 'application/json',
-        ...(this.token && { Authorization: `Bearer ${this.token}` }),
-        ...options.headers,
-      },
-      ...options,
-    };
-
-    try {
-      console.log(`API Request to: ${url}`, { method: options.method || 'GET' });
-      const response = await fetch(url, config);
-      
-      if (!response) {
-        throw new Error(`No response received from ${url}`);
-      }
-      
-      let data;
-      try {
-        data = await response.json();
-      } catch (parseError: unknown) {
-        const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown parse error';
-        console.error('Failed to parse JSON response:', parseError);
-        throw new Error(`Invalid JSON response from ${url}: ${errorMessage}`);
-      }
-
-      if (!response.ok) {
-        console.error('API error response:', { 
-          status: response.status, 
-          statusText: response.statusText,
-          data 
-        });
-        throw new Error(data.message || `Server error: ${response.status} ${response.statusText}`);
-      }
-
-      return data;
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      console.error('API request failed:', { 
-        url, 
-        method: options.method || 'GET',
-        error: errorMessage,
-        stack: errorStack
-      });
-      throw error;
-    }
-  }
-
-  setToken(token: string | null) {
-    this.token = token;
-    if (token) {
-      localStorage.setItem('token', token);
-    } else {
-      localStorage.removeItem('token');
-    }
-  }
-
+export const api = {
   // Auth endpoints
-  async register(userData: {
-    name: string;
-    email: string;
-    password: string;
-    btcWallet: string;
-    usdtWallet: string;
-  }) {
-    const response = await this.request<{
-      success: boolean;
-      token: string;
-      user: any;
-    }>('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(userData),
-    });
+  login: async (email: string, password: string) => {
+    console.warn('Backend server removed - using mock authentication');
+    return { user: mockUser, token: 'mock-token' };
+  },
 
-    if (response.success && response.token) {
-      this.setToken(response.token);
-    }
+  register: async (email: string, password: string, name: string) => {
+    console.warn('Backend server removed - using mock registration');
+    return { user: mockUser, token: 'mock-token' };
+  },
 
-    return response;
-  }
+  logout: async () => {
+    console.warn('Backend server removed - mock logout');
+    return { success: true };
+  },
 
-  async login({ email, password }: { email: string; password: string }) {
-    console.log('Login attempt with:', { email, redactedPassword: '***' });
-    
-    try {
-      const response = await this.request<{
-        success: boolean;
-        token: string;
-        user: any;
-      }>('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ email, password }),
-      });
+  // User endpoints
+  getProfile: async () => {
+    console.warn('Backend server removed - returning mock profile');
+    return mockUser;
+  },
 
-      console.log('Login response:', { success: response.success });
-      
-      if (response.success && response.token) {
-        this.setToken(response.token);
-      }
-
-      return response;
-    } catch (error) {
-      console.error('Login error in API client:', error);
-      throw error;
-    }
-  }
-
-  async logout() {
-    await this.request('/auth/logout', { method: 'POST' });
-    this.setToken(null);
-  }
-
-  async getProfile() {
-    return this.request<{
-      success: boolean;
-      user: any;
-    }>('/auth/profile');
-  }
-
-  async updateProfile(data: {
-    name?: string;
-    btcWallet?: string;
-    usdtWallet?: string;
-  }) {
-    return this.request<{
-      success: boolean;
-      user: any;
-    }>('/auth/profile', {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
-  }
+  updateProfile: async (data: any) => {
+    console.warn('Backend server removed - mock profile update');
+    return { ...mockUser, ...data };
+  },
 
   // Investment endpoints
-  async getInvestmentPlans() {
-    const response = await this.request<{
-      success: boolean;
-      data: any[];
-    }>('/investments/plans');
-    return response.data;
-  }
+  getInvestments: async () => {
+    console.warn('Backend server removed - returning mock investments');
+    return [
+      {
+        id: '1',
+        planName: 'Basic Plan',
+        amount: 1000,
+        expectedReturn: 1200,
+        duration: 30,
+        status: 'active',
+        createdAt: new Date().toISOString()
+      }
+    ];
+  },
 
-  async createInvestment({ planId, amount }: { planId: string; amount: number }) {
-    return this.request<{
-      success: boolean;
-      data: any;
-    }>('/investments', {
-      method: 'POST',
-      body: JSON.stringify({ planId, amount }),
-    });
-  }
-
-  async getUserInvestments() {
-    const response = await this.request<{
-      success: boolean;
-      data: any[];
-    }>('/investments');
-    return response.data;
-  }
-
-  async getInvestmentById(id: string) {
-    return this.request<{
-      success: boolean;
-      data: any;
-    }>(`/investments/${id}`);
-  }
+  createInvestment: async (data: any) => {
+    console.warn('Backend server removed - mock investment creation');
+    return {
+      id: Date.now().toString(),
+      ...data,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+  },
 
   // Deposit endpoints
-  async createDeposit({ amount, currency }: { amount: number; currency: 'BTC' | 'USDT' }) {
-    return this.request<{
-      success: boolean;
-      data: any;
-    }>('/deposits', {
-      method: 'POST',
-      body: JSON.stringify({ amount, currency }),
-    });
-  }
+  getDeposits: async () => {
+    console.warn('Backend server removed - returning mock deposits');
+    return [
+      {
+        id: '1',
+        amount: 1000,
+        status: 'completed',
+        createdAt: new Date().toISOString()
+      }
+    ];
+  },
 
-  async getUserDeposits() {
-    const response = await this.request<{
-      success: boolean;
-      data: any[];
-    }>('/deposits');
-    return response.data;
-  }
+  createDeposit: async (data: any) => {
+    console.warn('Backend server removed - mock deposit creation');
+    return {
+      id: Date.now().toString(),
+      ...data,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+  },
 
-  // Admin endpoints
-  async getAllDepositRequests(params?: {
-    status?: string;
-    page?: number;
-    limit?: number;
-  }) {
-    const queryString = params ? new URLSearchParams(params as any).toString() : '';
-    return this.request<{
-      success: boolean;
-      data: any[];
-      pagination: any;
-    }>(`/deposits/admin/all${queryString ? `?${queryString}` : ''}`);
+  // Investment plans
+  getInvestmentPlans: async () => {
+    console.warn('Backend server removed - returning mock investment plans');
+    return [
+      {
+        id: '1',
+        name: 'Basic Plan',
+        minAmount: 100,
+        maxAmount: 5000,
+        returnRate: 20,
+        duration: 30,
+        description: 'Low risk, steady returns'
+      },
+      {
+        id: '2',
+        name: 'Premium Plan',
+        minAmount: 1000,
+        maxAmount: 25000,
+        returnRate: 35,
+        duration: 60,
+        description: 'Medium risk, higher returns'
+      },
+      {
+        id: '3',
+        name: 'Elite Plan',
+        minAmount: 5000,
+        maxAmount: 100000,
+        returnRate: 50,
+        duration: 90,
+        description: 'High risk, maximum returns'
+      }
+    ];
   }
+};
 
-  async processDepositRequest(
-    id: string,
-    data: {
-      status: 'confirmed' | 'rejected';
-      adminNotes?: string;
-      transactionHash?: string;
-    }
-  ) {
-    return this.request<{
-      success: boolean;
-      data: any;
-    }>(`/deposits/admin/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
-  }
-
-  // Health check
-  async healthCheck() {
-    return this.request<{
-      success: boolean;
-      message: string;
-      timestamp: string;
-    }>('/health');
-  }
-}
-
-export const apiClient = new ApiClient(API_BASE_URL);
-export default apiClient;
+export default api;
