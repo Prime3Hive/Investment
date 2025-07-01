@@ -73,11 +73,22 @@ export const register = async (req, res) => {
 
 export const login = async (req, res) => {
   try {
+    // Validate request body
     const { email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email and password are required',
+      });
+    }
+
+    console.log(`Login attempt for email: ${email}`);
 
     // Check if user exists and get password
     const user = await User.findOne({ email }).select('+password');
     if (!user) {
+      console.log(`User not found: ${email}`);
       return res.status(401).json({
         success: false,
         message: 'Invalid email or password',
@@ -86,6 +97,7 @@ export const login = async (req, res) => {
 
     // Check if account is active
     if (!user.isActive) {
+      console.log(`Inactive account: ${email}`);
       return res.status(401).json({
         success: false,
         message: 'Account has been deactivated',
@@ -95,6 +107,7 @@ export const login = async (req, res) => {
     // Check password
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
+      console.log(`Invalid password for: ${email}`);
       return res.status(401).json({
         success: false,
         message: 'Invalid email or password',
@@ -104,13 +117,17 @@ export const login = async (req, res) => {
     // Update last login
     user.lastLogin = new Date();
     await user.save({ validateBeforeSave: false });
-
-    sendTokenResponse(user, 200, res);
+    
+    console.log(`Successful login for: ${email}`);
+    
+    // Send token response
+    return sendTokenResponse(user, 200, res);
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Server error during login',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
