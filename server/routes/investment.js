@@ -1,6 +1,6 @@
 import express from "express";
 import Plan from "../models/Plan.js";
-import { authenticate } from '../middleware/auth.js';
+import { protect } from '../middleware/auth.js';
 import isAdmin from '../middleware/adminAuth.js';
 import { investmentPlanValidation, validateRequest } from '../middleware/validation.js';
 
@@ -39,7 +39,7 @@ router.get("/plans/:id", async (req, res) => {
 // @route   POST /api/investments/plans
 router.post(
   "/plans", 
-  authenticate, 
+  protect, 
   isAdmin, 
   investmentPlanValidation,
   validateRequest,
@@ -75,7 +75,7 @@ router.post(
 // @route   PUT /api/investments/plans/:id
 router.put(
   "/plans/:id", 
-  authenticate, 
+  protect, 
   isAdmin, 
   async (req, res) => {
     try {
@@ -116,7 +116,7 @@ router.put(
 // @route   DELETE /api/investments/plans/:id
 router.delete(
   "/plans/:id", 
-  authenticate, 
+  protect, 
   isAdmin, 
   async (req, res) => {
     try {

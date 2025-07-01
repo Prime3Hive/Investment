@@ -1,6 +1,6 @@
 import express from 'express';
 import mongoose from 'mongoose';
-import { authenticate } from '../middleware/auth.js';
+import { protect } from '../middleware/auth.js';
 import isAdmin from '../middleware/adminAuth.js';
 import Transaction from '../models/Transaction.js';
 import User from '../models/User.js';
@@ -10,7 +10,7 @@ const router = express.Router();
 // @desc    Log a new transaction
 // @route   POST /api/transactions
 // @access  Private
-router.post('/', authenticate, async (req, res) => {
+router.post('/', protect, async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -91,7 +91,7 @@ router.post('/', authenticate, async (req, res) => {
 // @desc    Get user's transactions
 // @route   GET /api/transactions
 // @access  Private
-router.get('/', authenticate, async (req, res) => {
+router.get('/', protect, async (req, res) => {
   try {
     const { type, status, startDate, endDate, page = 1, limit = 10 } = req.query;
     const userId = req.user.id;
@@ -141,7 +141,7 @@ router.get('/', authenticate, async (req, res) => {
 // @desc    Get transaction by ID
 // @route   GET /api/transactions/:id
 // @access  Private
-router.get('/:id', authenticate, async (req, res) => {
+router.get('/:id', protect, async (req, res) => {
   try {
     const transaction = await Transaction.findById(req.params.id);
     
@@ -176,7 +176,7 @@ router.get('/:id', authenticate, async (req, res) => {
 // @desc    Get all transactions (admin only)
 // @route   GET /api/transactions/admin/all
 // @access  Admin
-router.get('/admin/all', authenticate, isAdmin, async (req, res) => {
+router.get('/admin/all', protect, isAdmin, async (req, res) => {
   try {
     const { type, status, userId, startDate, endDate, page = 1, limit = 20 } = req.query;
     
@@ -227,7 +227,7 @@ router.get('/admin/all', authenticate, isAdmin, async (req, res) => {
 // @desc    Update transaction status (admin only)
 // @route   PATCH /api/transactions/:id/status
 // @access  Admin
-router.patch('/:id/status', authenticate, isAdmin, async (req, res) => {
+router.patch('/:id/status', protect, isAdmin, async (req, res) => {
   try {
     const { status } = req.body;
     
