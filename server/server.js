@@ -46,13 +46,35 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// CORS configuration - Allow frontend to connect
+// CORS configuration - Allow frontend to connect with more permissive settings
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'], // Whitelist specific frontend origins
-  credentials: true
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+    
+    // Allow all localhost origins and common development ports
+    if (origin.startsWith('http://localhost:') || 
+        origin.startsWith('http://127.0.0.1:') ||
+        origin.startsWith('http://192.168.') ||
+        origin === 'null') {
+      return callback(null, true);
+    }
+    
+    // Also allow specific production origins if needed
+    const allowedOrigins = ['https://profitra.com', 'https://www.profitra.com'];
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      return callback(null, true);
+    }
+    
+    callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
-// Remove the backup middleware with wildcard origins as it undermines the security of the specific origin whitelist above
+// Enable preflight requests for all routes
+app.options('*', cors());
 
 // Body parser middleware
 app.use(express.json({ limit: '10mb' }));
@@ -128,7 +150,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001; // Changed from 5000 to avoid port conflicts
 
 const server = app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
