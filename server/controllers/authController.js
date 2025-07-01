@@ -115,19 +115,24 @@ export const login = async (req, res) => {
     }
 
     // Update last login
-    user.lastLogin = new Date();
-    await user.save({ validateBeforeSave: false });
-    
-    console.log(`Successful login for: ${email}`);
+    try {
+      user.lastLogin = new Date();
+      await user.save({ validateBeforeSave: false });
+      console.log(`Successful login for: ${email}`);
+    } catch (saveError) {
+      console.error(`Error updating last login for ${email}:`, saveError);
+      // Continue with login even if saving last login fails
+    }
     
     // Send token response
     return sendTokenResponse(user, 200, res);
   } catch (error) {
     console.error('Login error:', error);
+    // Ensure we always return a JSON response even if there's an error
     return res.status(500).json({
       success: false,
       message: 'Server error during login',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
 };

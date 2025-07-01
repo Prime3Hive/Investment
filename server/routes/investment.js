@@ -11,10 +11,16 @@ const router = express.Router();
 router.get("/plans", async (req, res) => {
   try {
     const plans = await Plan.find();
-    res.status(200).json(plans);
+    res.status(200).json({
+      success: true,
+      data: plans
+    });
   } catch (err) {
     console.error("Error fetching plans:", err.message);
-    res.status(500).json({ message: "Failed to fetch plans" });
+    res.status(500).json({ 
+      success: false,
+      message: "Failed to fetch plans" 
+    });
   }
 });
 
@@ -24,12 +30,21 @@ router.get("/plans/:id", async (req, res) => {
   try {
     const plan = await Plan.findById(req.params.id);
     if (!plan) {
-      return res.status(404).json({ message: "Plan not found" });
+      return res.status(404).json({
+        success: false, 
+        message: "Plan not found" 
+      });
     }
-    res.status(200).json(plan);
+    res.status(200).json({
+      success: true,
+      data: plan
+    });
   } catch (err) {
     console.error("Error fetching plan:", err.message);
-    res.status(500).json({ message: "Failed to fetch plan" });
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to fetch plan" 
+    });
   }
 });
 
