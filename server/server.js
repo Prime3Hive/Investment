@@ -13,6 +13,8 @@ import authRoutes from './routes/auth.js';
 import investmentRoutes from './routes/investments.js';
 import depositRoutes from './routes/deposits.js';
 import withdrawalRoutes from './routes/withdrawals.js';
+import adminInvestmentRoutes from './routes/adminInvestmentRoutes.js';
+import investmentRoute from './routes/investment.js';
 
 // Load environment variables
 dotenv.config();
@@ -91,6 +93,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/investments', investmentRoutes);
 app.use('/api/deposits', depositRoutes);
 app.use('/api/withdrawals', withdrawalRoutes);
+app.use('/api/admin/investment-plans', adminInvestmentRoutes);
+app.use('/api/investments', investmentRoute); // New simplified investment route
 
 // Health check endpoint
 app.get('/api/health', (req, res, next) => {
